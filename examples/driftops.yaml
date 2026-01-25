@@ -1,0 +1,143 @@
+# DriftOps Configuration File
+# https://github.com/yourusername/driftops
+#
+# This is an example configuration file. Copy it to your project root
+# and customize as needed.
+
+# Scanning options
+scan:
+  # Patterns to exclude from scanning (glob patterns)
+  exclude_patterns:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/examples/**"
+    - "**/.terraform/**"
+    - "**/vendor/**"
+  
+  # Continue scanning even if some files fail to parse
+  continue_on_error: false
+  
+  # Maximum depth for recursive directory scanning
+  max_depth: 100
+
+# Analysis options
+analysis:
+  # Flag exact version constraints (e.g., "= 1.0.0")
+  # These prevent automatic patch updates
+  check_exact_versions: true
+  
+  # Flag pre-release versions (e.g., "1.0.0-beta")
+  # Pre-release versions may be unstable
+  check_prerelease: true
+  
+  # Flag constraints without upper bounds (e.g., ">= 1.0")
+  # These may allow breaking changes
+  check_upper_bound: true
+  
+  # Flag modules older than this many months
+  # Set to 0 to disable
+  max_age_months: 12
+
+# Output options
+output:
+  # Use colored output in terminal
+  colored: true
+  
+  # Enable verbose output (show all modules/providers)
+  verbose: false
+  
+  # Pretty-print JSON output
+  pretty: true
+
+# Git options (for cloning repositories)
+git:
+  # Authentication token (can use environment variable)
+  # Uncomment and set your token, or use DRIFTOPS_GIT_TOKEN env var
+  # token: ${GITHUB_TOKEN}
+  
+  # Branch to checkout (default: repository's default branch)
+  # branch: main
+
+# Policy rules - customize these based on your organization's standards
+policies:
+  # Require version constraints on all modules
+  # Recommended: true
+  require_version_constraint: true
+  
+  # Require upper bounds on all version constraints
+  # More strict - prevents any major version upgrades
+  require_upper_bound: false
+  
+  # Allowed provider patterns (empty = allow all)
+  # Use glob patterns to restrict which providers can be used
+  # allowed_providers:
+  #   - hashicorp/*
+  #   - terraform-aws-modules/*
+  #   - cloudposse/*
+  
+# Deprecation tracking for modules and providers
+# Mark specific version ranges as deprecated with custom messages
+deprecations:
+  runtime:
+    terraform:
+      - version: "< 0.13.0"
+        reason: "Legacy Terraform version, migrate to v0.13.0 or later"
+        severity: error
+        replacement: ">= 0.13.0"
+    opentofu:
+      - version: '*'
+        reason: "OpenTofu is not validated yet, use Terraform instead"
+        severity: error
+        replacement: "terraform"
+
+  modules:
+    # Module source identifier (use canonical format or shorthand)
+    "claranet/azure-log-mngt-v1/azurerm":
+      - version: "1.0.1"
+        reason: "Critical security vulnerability CVE-2023-1234"
+        severity: error
+        replacement: "claranet/azure-log-mngt-v3/azurerm"
+
+      - version: ">= 2.0.8, < 3.0.0"
+        reason: "Breaking API changes, migrate to v3"
+        severity: warning
+        replacement: "claranet/azure-log-mngt-v3/azurerm"
+      
+      - version: "~> 3.1"
+        reason: "v3.1.x has known performance issues"
+        severity: warning
+        replacement: "claranet/azure-log-mngt-v3/azurerm"
+
+    "claranet/azure-log-mngt-v2/azurerm":
+      - version: "0.0.10"
+        reason: "CVE-2024-5678 detected during security audit"
+        severity: error
+        replacement: "claranet/azure-log-mngt-v3/azurerm"
+
+  providers:
+    # Provider source (qualified name like "hashicorp/azurerm")
+    "hashicorp/azurerm":
+      versions:
+        - version: "> 0.0.1, < 3.50.0"
+          reason: "Multiple CVEs in versions before 3.50.0"
+          severity: error
+          replacement: ">= 3.50.0"
+        
+        - version: ">= 4.0.0, < 4.50.0"
+          reason: "Known authentication issues in early 4.x versions"
+          severity: warning
+          replacement: ">= 4.50.0"
+
+  # Blocked module patterns
+  # Use to prevent usage of deprecated or insecure modules
+  # blocked_modules:
+  #   - deprecated-org/*
+  #   - insecure-module/*
+
+# Severity overrides for specific finding codes
+# Use this to customize severity based on your needs
+# severity_overrides:
+#   DRIFT002: info      # Downgrade missing constraint to info
+#   DRIFT003: error     # Upgrade wildcard to error
+#   DRIFT006: warning   # Upgrade exact version to warning
+

@@ -1,0 +1,1736 @@
+//! Graph type definitions.
+use crate::vcs::VcsIdentifier;//!
+//! This module defines the core types used in the dependency graph:
+//! - `DependencyGraph`: The main graph structure
+//! - `GraphNode`: Nodes in the graph (modules or providers)
+//! - `EdgeType`: Relationships between nodes
+//! - `NodeId`: Unique identifier for nodes
+
+use crate::VersionRange;
+use crate::types::{Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef, VcsIdentifier};
+use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// Unique identifier for a node in the graph.
+///
+/// This is a string-based identifier that uniquely identifies a module
+/// or provider across all repositories being analyzed.
+pub type NodeId = String;
+
+/// The dependency graph structure.
+///
+/// This is the central data structure for representing relationships
+/// between Terraform modules and providers. It wraps a petgraph directed
+/// graph and provides domain-specific operations.
+///
+/// # Structure
+///
+/// ```text
+/// DependencyGraph
+/// ├── inner: DiGraph<GraphNode, EdgeType>  // The actual graph
+/// ├── node_index: HashMap<NodeId, NodeIndex>  // Fast lookup by ID
+/// ├── modules: HashMap<NodeId, NodeIndex>  // Module nodes only
+/// └── providers: HashMap<NodeId, NodeIndex>  // Provider nodes only
+/// ```
+///
+/// # Thread Safety
+///
+/// The graph is not thread-safe by default. For concurrent access,
+/// wrap it in `Arc<RwLock<DependencyGraph>>`.
+#[derive(Debug, Clone)]
+pub struct DependencyGraph {
+    /// The underlying petgraph directed graph
+    inner: DiGraph<GraphNode, EdgeType>,
+
+    /// Index from canonical node ID to petgraph NodeIndex
+    node_index: HashMap<NodeId, NodeIndex>,
+
+    /// Index of module nodes only
+    modules: HashMap<NodeId, NodeIndex>,
+
+    /// Index of provider nodes only
+    providers: HashMap<NodeId, NodeIndex>,
+
+    /// Index of runtime nodes only
+    runtimes: HashMap<NodeId, NodeIndex>,
+
+    vcs_metadata: HashMap<NodeId, VcsIdentifier>,
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+impl Default for DependencyGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+impl DependencyGraph {
+    /// Create a new empty dependency graph.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            inner: DiGraph::new(),
+            node_index: HashMap::new(),
+            modules: HashMap::new(),
+            providers: HashMap::new(),
+            runtimes: HashMap::new(),
+            vcs_metadata: HashMap::new(),
+        }
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Add a module node to the graph.
+    ///
+    /// Returns the node ID if the module was added, or the existing ID
+    /// if a module with the same canonical ID already exists.
+    pub fn add_module(&mut self, module: &ModuleRef) -> NodeId {
+        let node_id = self.module_node_id(module);
+
+        if let Some(&_existing) = self.node_index.get(&node_id) {
+            return node_id;
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+        let node = GraphNode::Module(ModuleNode {
+            id: node_id.clone(),
+            name: module.name.clone(),
+            source: module.source.clone(),
+            version_constraint: module.version_constraint.clone(),
+            file_path: module.file_path.clone(),
+            line_number: module.line_number,
+            repository: module.repository.clone(),
+        });
+
+        let idx = self.inner.add_node(node);
+        self.node_index.insert(node_id.clone(), idx);
+        self.modules.insert(node_id.clone(), idx);
+
+        node_id
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Add a provider node to the graph.
+    ///
+    /// Returns the node ID if the provider was added, or the existing ID
+    /// if a provider with the same canonical ID already exists.
+    pub fn add_provider(&mut self, provider: &ProviderRef) -> NodeId {
+        let node_id = self.provider_node_id(provider);
+
+        if let Some(&_existing) = self.node_index.get(&node_id) {
+            return node_id;
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+        let node = GraphNode::Provider(ProviderNode {
+            id: node_id.clone(),
+            name: provider.name.clone(),
+            source: provider.qualified_source(),
+            version_constraint: provider.version_constraint.clone(),
+            file_path: provider.file_path.clone(),
+            line_number: provider.line_number,
+            repository: provider.repository.clone(),
+        });
+
+        let idx = self.inner.add_node(node);
+        self.node_index.insert(node_id.clone(), idx);
+        self.providers.insert(node_id.clone(), idx);
+
+        node_id
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Add a runtime node to the graph.
+    ///
+    /// Returns the node ID if the runtime was added, or the existing ID
+    /// if a runtime with the same name already exists.
+    pub fn add_runtime(&mut self, runtime: &RuntimeRef) -> NodeId {
+        tracing::debug!(runtime = %runtime.name, "Adding runtime node");
+
+        let node_id = format!("runtime:{}", runtime.name);
+
+        let node = GraphNode::Runtime(RuntimeNode {
+            id: node_id.clone(),
+            name: runtime.name.clone(),
+            version: runtime.version.clone(),
+            source: runtime.source.to_string(),
+            file_path: runtime.file_path.clone(),
+            line_number: runtime.line_number,
+            repository: runtime.repository.clone(),
+        });
+
+        let idx = self.inner.add_node(node);
+
+        self.node_index.insert(node_id.clone(), idx);
+        self.runtimes.insert(node_id.clone(), idx);
+
+
+        node_id
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Add an edge between two nodes.
+    ///
+    /// Returns true if the edge was added, false if it already exists
+    /// or if either node doesn't exist.
+    pub fn add_edge(&mut self, from: &NodeId, to: &NodeId, edge_type: EdgeType) -> bool {
+        let from_idx = match self.node_index.get(from) {
+            Some(&idx) => idx,
+            None => return false,
+        };
+        let to_idx = match self.node_index.get(to) {
+            Some(&idx) => idx,
+            None => return false,
+        };
+
+        // Check if edge already exists
+        if self.inner.find_edge(from_idx, to_idx).is_some() {
+            return false;
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+        self.inner.add_edge(from_idx, to_idx, edge_type);
+        true
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get a node by its ID.
+    #[must_use]
+    pub fn get_node(&self, id: &NodeId) -> Option<&GraphNode> {
+        self.node_index.get(id).map(|&idx| &self.inner[idx])
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get the number of nodes in the graph.
+    #[must_use]
+    pub fn node_count(&self) -> usize {
+        self.inner.node_count()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get the number of edges in the graph.
+    #[must_use]
+    pub fn edge_count(&self) -> usize {
+        self.inner.edge_count()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get all module node IDs.
+    #[must_use]
+    pub fn module_ids(&self) -> Vec<&NodeId> {
+        self.modules.keys().collect()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get all provider node IDs.
+    #[must_use]
+    pub fn provider_ids(&self) -> Vec<&NodeId> {
+        self.providers.keys().collect()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get all nodes that depend on the given node (incoming edges).
+    #[must_use]
+    pub fn get_dependents(&self, id: &NodeId) -> Vec<&GraphNode> {
+        let idx = match self.node_index.get(id) {
+            Some(&idx) => idx,
+            None => return Vec::new(),
+        };
+
+        self.inner
+            .neighbors_directed(idx, petgraph::Direction::Incoming)
+            .map(|neighbor_idx| &self.inner[neighbor_idx])
+            .collect()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get all nodes that the given node depends on (outgoing edges).
+    #[must_use]
+    pub fn get_dependencies(&self, id: &NodeId) -> Vec<&GraphNode> {
+        let idx = match self.node_index.get(id) {
+            Some(&idx) => idx,
+            None => return Vec::new(),
+        };
+
+        self.inner
+            .neighbors_directed(idx, petgraph::Direction::Outgoing)
+            .map(|neighbor_idx| &self.inner[neighbor_idx])
+            .collect()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get all modules that use a specific provider.
+    #[must_use]
+    pub fn modules_using_provider(&self, provider_source: &str) -> Vec<&ModuleNode> {
+        // Find the provider node
+        let provider_idx = self.providers.iter().find_map(|(_id, &idx)| {
+            if let GraphNode::Provider(p) = &self.inner[idx] {
+                if p.source == provider_source {
+                    return Some(idx);
+                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            None
+        });
+
+        let provider_idx = match provider_idx {
+            Some(idx) => idx,
+            None => return Vec::new(),
+        };
+
+        // Get all incoming edges (modules that require this provider)
+        self.inner
+            .neighbors_directed(provider_idx, petgraph::Direction::Incoming)
+            .filter_map(|neighbor_idx| {
+                if let GraphNode::Module(m) = &self.inner[neighbor_idx] {
+                    Some(m)
+                } else {
+                    None
+                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            })
+            .collect()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Find a cycle in the graph, if one exists.
+    ///
+    /// Returns a vector of node IDs representing the cycle, or None if
+    /// no cycle exists.
+    #[must_use]
+    pub fn find_cycle(&self) -> Option<Vec<NodeId>> {
+        use petgraph::algo::is_cyclic_directed;
+
+        if !is_cyclic_directed(&self.inner) {
+            return None;
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+        // Find the actual cycle using DFS
+        // This is a simplified implementation; a full implementation
+        // would use Tarjan's algorithm for all SCCs
+        use petgraph::visit::{depth_first_search, DfsEvent};
+
+        let mut cycle = Vec::new();
+        let mut in_stack: HashMap<NodeIndex, bool> = HashMap::new();
+        let mut stack: Vec<NodeIndex> = Vec::new();
+
+        depth_first_search(&self.inner, self.inner.node_indices(), |event| {
+            match event {
+                DfsEvent::Discover(node, _) => {
+                    in_stack.insert(node, true);
+                    stack.push(node);
+                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                DfsEvent::BackEdge(_, target) => {
+                    if in_stack.get(&target) == Some(&true) {
+                        // Found a cycle
+                        let start_idx = stack.iter().position(|&n| n == target).unwrap();
+                        cycle = stack[start_idx..]
+                            .iter()
+                            .map(|&idx| self.inner[idx].id().to_string())
+                            .collect();
+                    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                DfsEvent::Finish(node, _) => {
+                    in_stack.insert(node, false);
+                    stack.pop();
+                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                _ => {}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            petgraph::visit::Control::Continue::<()>
+        });
+
+        if cycle.is_empty() {
+            None
+        } else {
+            Some(cycle)
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Merge another graph into this one.
+    pub fn merge(&mut self, other: Self) {
+        // Add all nodes from the other graph
+        for node in other.inner.node_weights() {
+            match node {
+                GraphNode::Module(m) => {
+                    if !self.node_index.contains_key(&m.id) {
+                        let idx = self.inner.add_node(node.clone());
+                        self.node_index.insert(m.id.clone(), idx);
+                        self.modules.insert(m.id.clone(), idx);
+                    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                GraphNode::Provider(p) => {
+                    if !self.node_index.contains_key(&p.id) {
+                        let idx = self.inner.add_node(node.clone());
+                        self.node_index.insert(p.id.clone(), idx);
+                        self.providers.insert(p.id.clone(), idx);
+                    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                },
+                GraphNode::Runtime(r) => {
+                    if !self.node_index.contains_key(&r.id) {
+                        let idx = self.inner.add_node(node.clone());
+                        self.node_index.insert(r.id.clone(), idx);
+                        self.runtimes.insert(r.id.clone(), idx);
+                    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+        // Add all edges from the other graph
+        for edge in other.inner.edge_references() {
+            let from_node = &other.inner[edge.source()];
+            let to_node = &other.inner[edge.target()];
+            let from_id = from_node.id();
+            let to_id = to_node.id();
+
+            if let (Some(&from_idx), Some(&to_idx)) =
+                (self.node_index.get(from_id), self.node_index.get(to_id))
+            {
+                if self.inner.find_edge(from_idx, to_idx).is_none() {
+                    self.inner.add_edge(from_idx, to_idx, edge.weight().clone());
+        }
+
+        // Merge VCS metadata
+        for (node_id, vcs_id) in other.vcs_metadata {
+            if !self.vcs_metadata.contains_key(&node_id) {
+                self.vcs_metadata.insert(node_id, vcs_id);
+            }
+        }                }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }            }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get an iterator over all nodes.
+    pub fn nodes(&self) -> impl Iterator<Item = &GraphNode> {
+        self.inner.node_weights()
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get an iterator over all edges.
+    pub fn edges(&self) -> impl Iterator<Item = (&GraphNode, &GraphNode, &EdgeType)> {
+        self.inner.edge_references().map(|edge| {
+            (
+                &self.inner[edge.source()],
+                &self.inner[edge.target()],
+                edge.weight(),
+            )
+        })
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get the underlying petgraph for advanced operations.
+    #[must_use]
+    pub fn inner(&self) -> &DiGraph<GraphNode, EdgeType> {
+        &self.inner
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Generate a canonical node ID for a module.
+    fn module_node_id(&self, module: &ModuleRef) -> NodeId {
+        let source_id = module.source.canonical_id();
+        let repo = module.repository.as_deref().unwrap_or("local");
+        format!("module:{repo}:{source_id}:{}", module.name)
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Generate a canonical node ID for a provider.
+    fn provider_node_id(&self, provider: &ProviderRef) -> NodeId {
+        let source = provider.qualified_source();
+        let repo = provider.repository.as_deref().unwrap_or("local");
+        format!("provider:{repo}:{source}")
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+/// A node in the dependency graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum GraphNode {
+    /// A Terraform module
+    Module(ModuleNode),
+    /// A Terraform provider
+    Provider(ProviderNode),
+    /// A Terraform runtime
+    Runtime(RuntimeNode),
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+impl GraphNode {
+    /// Get the node's unique ID.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Module(m) => &m.id,
+            Self::Provider(p) => &p.id,
+            Self::Runtime(r) => &r.id
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Get the node's display name.
+    #[must_use]
+    pub fn display_name(&self) -> &str {
+        match self {
+            Self::Module(m) => &m.name,
+            Self::Provider(p) => &p.name,
+            Self::Runtime(r) => &r.name,
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Check if this is a module node.
+    #[must_use]
+    pub const fn is_module(&self) -> bool {
+        matches!(self, Self::Module(_))
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    /// Check if this is a provider node.
+    #[must_use]
+    pub const fn is_provider(&self) -> bool {
+        matches!(self, Self::Provider(_))
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[must_use]
+    pub const fn is_runtime(&self) -> bool {
+        matches!(self, Self::Runtime(_))
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+/// A module node in the graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleNode {
+    /// Unique identifier
+    pub id: NodeId,
+    /// Module name (from the module block label)
+    pub name: String,
+    /// Module source
+    pub source: ModuleSource,
+    /// Version constraint
+    pub version_constraint: Option<Constraint>,
+    /// File where defined
+    pub file_path: PathBuf,
+    /// Line number
+    pub line_number: usize,
+    /// Repository name
+    pub repository: Option<String>,
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+/// A provider node in the graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderNode {
+    /// Unique identifier
+    pub id: NodeId,
+    /// Provider local name
+    pub name: String,
+    /// Provider source (e.g., "hashicorp/aws")
+    pub source: String,
+    /// Version constraint
+    pub version_constraint: Option<Constraint>,
+    /// File where defined
+    pub file_path: PathBuf,
+    /// Line number
+    pub line_number: usize,
+    /// Repository name
+    pub repository: Option<String>,
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeNode {
+    /// Unique identifier
+    pub id: NodeId,
+    /// Runtime name
+    pub name: String,
+    /// Runtime version
+    pub version: Constraint,
+    /// Provider source (e.g., "hashicorp/aws")
+    pub source: String,
+    /// File where defined
+    pub file_path: PathBuf,
+    /// Line number
+    pub line_number: usize,
+    /// Repository name
+    pub repository: Option<String>,
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+/// Type of edge in the dependency graph.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EdgeType {
+    /// Module depends on another module
+    ModuleDependsOn,
+    /// Module requires a provider
+    ModuleRequiresProvider,
+    /// Provider is an alias of another provider
+    ProviderAlias,
+    /// Module uses a local module
+    LocalModuleRef,
+}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+impl std::fmt::Display for EdgeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ModuleDependsOn => write!(f, "depends_on"),
+            Self::ModuleRequiresProvider => write!(f, "requires"),
+            Self::ProviderAlias => write!(f, "alias_of"),
+            Self::LocalModuleRef => write!(f, "local_ref"),
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+#[cfg(test)]
+mod tests {
+    use semver::Version;
+
+    use crate::{VersionRange, types::RuntimeSource};
+
+    use super::*;
+
+    fn create_test_module_ref(name: &str) -> ModuleRef {
+        ModuleRef {
+            name: name.to_string(),
+            source: ModuleSource::Registry {
+                hostname: "registry.terraform.io".to_string(),
+                namespace: "hashicorp".to_string(),
+                name: name.to_string(),
+                provider: "aws".to_string(),
+            },
+            version_constraint: None,
+            file_path: PathBuf::from("main.tf"),
+            line_number: 1,
+            repository: Some("test".to_string()),
+            attributes: Default::default(),
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    fn create_test_provider_ref(name: &str) -> ProviderRef {
+        ProviderRef {
+            name: name.to_string(),
+            source: Some(format!("hashicorp/{name}")),
+            version_constraint: None,
+            file_path: PathBuf::from("versions.tf"),
+            line_number: 1,
+            repository: Some("test".to_string()),
+        }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_add_module() {
+        let mut graph = DependencyGraph::new();
+        let module = create_test_module_ref("vpc");
+
+        let id = graph.add_module(&module);
+        assert!(graph.get_node(&id).is_some());
+        assert_eq!(graph.node_count(), 1);
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_add_provider() {
+        let mut graph = DependencyGraph::new();
+        let provider = create_test_provider_ref("aws");
+
+        let id = graph.add_provider(&provider);
+        assert!(graph.get_node(&id).is_some());
+        assert_eq!(graph.node_count(), 1);
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_add_edge() {
+        let mut graph = DependencyGraph::new();
+        let module = create_test_module_ref("vpc");
+        let provider = create_test_provider_ref("aws");
+
+        let module_id = graph.add_module(&module);
+        let provider_id = graph.add_provider(&provider);
+
+        let added = graph.add_edge(&module_id, &provider_id, EdgeType::ModuleRequiresProvider);
+        assert!(added);
+        assert_eq!(graph.edge_count(), 1);
+
+        // Adding same edge again should return false
+        let added_again =
+            graph.add_edge(&module_id, &provider_id, EdgeType::ModuleRequiresProvider);
+        assert!(!added_again);
+        assert_eq!(graph.edge_count(), 1);
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_get_dependencies() {
+        let mut graph = DependencyGraph::new();
+        let module = create_test_module_ref("vpc");
+        let provider = create_test_provider_ref("aws");
+
+        let module_id = graph.add_module(&module);
+        let provider_id = graph.add_provider(&provider);
+        graph.add_edge(&module_id, &provider_id, EdgeType::ModuleRequiresProvider);
+
+        let deps = graph.get_dependencies(&module_id);
+        assert_eq!(deps.len(), 1);
+        assert!(deps[0].is_provider());
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_get_dependents() {
+        let mut graph = DependencyGraph::new();
+        let module = create_test_module_ref("vpc");
+        let provider = create_test_provider_ref("aws");
+
+        let module_id = graph.add_module(&module);
+        let provider_id = graph.add_provider(&provider);
+        graph.add_edge(&module_id, &provider_id, EdgeType::ModuleRequiresProvider);
+
+        let dependents = graph.get_dependents(&provider_id);
+        assert_eq!(dependents.len(), 1);
+        assert!(dependents[0].is_module());
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_add_runtime() {
+        let mut graph = DependencyGraph::new();
+        let runtime = RuntimeRef {
+            name: "terraform".to_string(),
+            version: Constraint::parse("1.0.0").unwrap(),
+            source: RuntimeSource::Terraform,
+            file_path: PathBuf::from("main.tf"),
+            line_number: 1,
+            repository: Some("test".to_string()),
+        };
+
+        let id = graph.add_runtime(&runtime);
+        assert!(graph.get_node(&id).is_some());
+        assert!(graph.get_node(&id).unwrap().is_runtime());
+        assert_eq!(graph.node_count(), 1);
+        assert_eq!(graph.edge_count(), 0);
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_no_cycle() {
+        let mut graph = DependencyGraph::new();
+        let m1 = create_test_module_ref("m1");
+        let m2 = create_test_module_ref("m2");
+
+        let id1 = graph.add_module(&m1);
+        let id2 = graph.add_module(&m2);
+        graph.add_edge(&id1, &id2, EdgeType::ModuleDependsOn);
+
+        assert!(graph.find_cycle().is_none());
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }
+    #[test]
+    fn test_merge_graphs() {
+        let mut graph1 = DependencyGraph::new();
+        let mut graph2 = DependencyGraph::new();
+
+        let m1 = create_test_module_ref("m1");
+        let m2 = create_test_module_ref("m2");
+
+        graph1.add_module(&m1);
+        graph2.add_module(&m2);
+
+        graph1.merge(graph2);
+        assert_eq!(graph1.node_count(), 2);
+    }
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }}
+
+    /// Set VCS metadata for a node
+    pub fn set_vcs_metadata(&mut self, node_id: &NodeId, vcs_id: VcsIdentifier) {
+        self.vcs_metadata.insert(node_id.clone(), vcs_id);
+    }
+
+    /// Get VCS metadata for a node
+    #[must_use]
+
+    /// Get all nodes with VCS metadata
+    #[must_use]
+    pub fn vcs_nodes(&self) -> &HashMap<NodeId, VcsIdentifier> {
+        &self.vcs_metadata
+    }

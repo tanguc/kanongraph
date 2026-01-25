@@ -1,0 +1,24 @@
+{
+  "cached_at": {
+    "secs_since_epoch": 1767289308,
+    "nanos_since_epoch": 807126000
+  },
+  "repos": [
+    {
+      "name": "test-proj",
+      "clone_url": "https://github.com/test-org/test-proj.git",
+      "default_branch": "master",
+      "archived": false,
+      "fork": false,
+      "platform_id": "835898"
+    },
+    {
+      "name": "example",
+      "clone_url": "https://github.com/test-org/example.git",
+      "default_branch": "master",
+      "archived": false,
+      "fork": true,
+      "platform_id": "1517555"
+    }
+  ]
+}
