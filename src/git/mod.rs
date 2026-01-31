@@ -33,8 +33,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use driftops::git::GitClient;
-//! use driftops::Config;
+//! use kanongraph::git::GitClient;
+//! use kanongraph::Config;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {

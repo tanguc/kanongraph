@@ -1,13 +1,13 @@
-# 🔍 DriftOps
+# 🔍 KanonGraph
 
 **Terraform/OpenTofu module constraint analyzer and dependency mapper.**
 
-[![CI](https://github.com/yourusername/driftops/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/driftops/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/driftops.svg)](https://crates.io/crates/driftops)
-[![Documentation](https://docs.rs/driftops/badge.svg)](https://docs.rs/driftops)
+[![CI](https://github.com/yourusername/kanongraph/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/kanongraph/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/kanongraph.svg)](https://crates.io/crates/kanongraph)
+[![Documentation](https://docs.rs/kanongraph/badge.svg)](https://docs.rs/kanongraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-DriftOps scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
+KanonGraph scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
 
 ## ✨ Features
 
@@ -25,11 +25,11 @@ DriftOps scans Terraform/OpenTofu repositories, parses HCL files, builds depende
 
 ```bash
 # From crates.io
-cargo install driftops
+cargo install kanongraph
 
 # From source
-git clone https://github.com/yourusername/driftops
-cd driftops
+git clone https://github.com/yourusername/kanongraph
+cd kanongraph
 cargo install --path .
 ```
 
@@ -37,30 +37,30 @@ cargo install --path .
 
 ```bash
 # Scan a local directory
-driftops scan ./terraform
+kanongraph scan ./terraform
 
 # Scan multiple directories
-driftops scan ./repo1 ./repo2 ./repo3
+kanongraph scan ./repo1 ./repo2 ./repo3
 
 # Scan remote repositories
-driftops scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
+kanongraph scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
 
 # Generate JSON report
-driftops scan ./terraform --format json --output report.json
+kanongraph scan ./terraform --format json --output report.json
 
 # Generate HTML report
-driftops scan ./terraform --format html --output report.html
+kanongraph scan ./terraform --format html --output report.html
 
 # Generate dependency graph
-driftops graph ./terraform --format dot --output deps.dot
+kanongraph graph ./terraform --format dot --output deps.dot
 ```
 
 ### Configuration
 
-Create a `driftops.yaml` file:
+Create a `kanongraph.yaml` file:
 
 ```yaml
-# driftops.yaml
+# kanongraph.yaml
 scan:
   exclude_patterns:
     - "**/test/**"
@@ -84,7 +84,7 @@ policies:
 Generate an example configuration:
 
 ```bash
-driftops init
+kanongraph init
 ```
 
 ## 📖 Documentation
@@ -101,7 +101,7 @@ driftops init
 ### Scan Options
 
 ```bash
-driftops scan [OPTIONS] [PATHS]...
+kanongraph scan [OPTIONS] [PATHS]...
 
 Options:
   -r, --repo <URL>          Git repository URLs to clone and scan
@@ -127,7 +127,7 @@ Options:
 ## 🏗️ Architecture
 
 ```
-driftops/
+kanongraph/
 ├── src/
 │   ├── lib.rs           # Library entry point
 │   ├── main.rs          # CLI entry point
@@ -230,7 +230,7 @@ A constraint has no upper bound, allowing breaking changes.
 
 ```
 ═══════════════════════════════════════════════════════════════
-  DriftOps Analysis Report v0.1.0
+  KanonGraph Analysis Report v0.1.0
 Generated: 2024-01-15 10:30:00
 ═══════════════════════════════════════════════════════════════
 
@@ -277,25 +277,25 @@ graph TD
 ## 🔧 Library Usage
 
 ```rust
-use driftops::{Scanner, Config, ReportFormat};
+use kanongraph::{Scanner, Config, ReportFormat};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::default();
     let scanner = Scanner::new(config);
-    
+
     // Scan a local directory
     let result = scanner.scan_path("./terraform").await?;
-    
+
     // Check for issues
     if result.analysis.has_errors() {
         eprintln!("Errors found!");
     }
-    
+
     // Generate a report
     let report = result.generate_report(ReportFormat::Json)?;
     println!("{}", report);
-    
+
     Ok(())
 }
 ```

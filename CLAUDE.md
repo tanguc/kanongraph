@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DriftOps is a Terraform/OpenTofu module constraint analyzer and dependency mapper written in Rust. It scans Terraform repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns across multiple repositories.
+KanonGraph is a Terraform/OpenTofu module constraint analyzer and dependency mapper written in Rust. It scans Terraform repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns across multiple repositories.
 
 ## Build & Test Commands
 
@@ -171,11 +171,11 @@ Uses regex patterns with fallback to `Unknown` for unrecognized formats.
 
 Configuration priority (highest to lowest):
 1. CLI arguments
-2. Environment variables (e.g., `DRIFTOPS_GIT_TOKEN`)
-3. Configuration file (`driftops.yaml`)
+2. Environment variables (e.g., `KANONGRAPH_GIT_TOKEN`)
+3. Configuration file (`kanongraph.yaml`)
 4. Defaults
 
-Generate example config: `driftops init`
+Generate example config: `kanongraph init`
 
 ## Development Notes
 

@@ -1,4 +1,4 @@
-//! Error types for DriftOps.
+//! Error types for KanonGraph.
 //!
 //! This module defines a comprehensive error hierarchy using `thiserror`
 //! for proper error handling throughout the application. All errors
@@ -15,11 +15,11 @@
 //! # Example
 //!
 //! ```rust
-//! use driftops::error::{DriftOpsError, Result};
+//! use kanongraph::error::{KanonGraphError, Result};
 //!
 //! fn parse_file(path: &str) -> Result<()> {
 //!     let content = std::fs::read_to_string(path)
-//!         .map_err(|e| DriftOpsError::Io {
+//!         .map_err(|e| KanonGraphError::Io {
 //!             path: path.into(),
 //!             source: e,
 //!         })?;
@@ -30,15 +30,15 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// A specialized Result type for DriftOps operations.
-pub type Result<T> = std::result::Result<T, DriftOpsError>;
+/// A specialized Result type for KanonGraph operations.
+pub type Result<T> = std::result::Result<T, KanonGraphError>;
 
-/// The main error type for DriftOps.
+/// The main error type for KanonGraph.
 ///
 /// This enum covers all possible error conditions that can occur
 /// during scanning, parsing, analysis, and reporting.
 #[derive(Error, Debug)]
-pub enum DriftOpsError {
+pub enum KanonGraphError {
     // =========================================================================
     // I/O and File System Errors
     // =========================================================================
@@ -293,11 +293,11 @@ pub enum DriftOpsError {
         /// Number of errors
         count: usize,
         /// The individual errors
-        errors: Vec<DriftOpsError>,
+        errors: Vec<KanonGraphError>,
     },
 }
 
-impl DriftOpsError {
+impl KanonGraphError {
     /// Creates an `Io` error.
     #[must_use]
     pub fn io(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
@@ -370,7 +370,7 @@ impl DriftOpsError {
         }
     }
 
-    /// Consolidates multiple errors into a single `DriftOpsError::Multiple` if there's more than one.
+    /// Consolidates multiple errors into a single `KanonGraphError::Multiple` if there's more than one.
     /// Otherwise, returns the single error or `Ok(())` if no errors.
     pub fn collect(errors: Vec<Self>) -> Result<()> {
         if errors.is_empty() {
@@ -406,7 +406,7 @@ where
     E: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     fn with_path(self, path: impl Into<PathBuf>) -> Result<T> {
-        self.map_err(|e| DriftOpsError::Io {
+        self.map_err(|e| KanonGraphError::Io {
             path: path.into(),
             source: *e.into().downcast::<std::io::Error>().unwrap_or_else(|e| {
                 Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
@@ -415,30 +415,30 @@ where
     }
 
     fn to_hcl_parse_error(self, file: impl Into<PathBuf>, message: String, line: Option<usize>, column: Option<usize>) -> Result<T> {
-        self.map_err(|_| DriftOpsError::hcl_parse(file.into(), message, line, column))
+        self.map_err(|_| KanonGraphError::hcl_parse(file.into(), message, line, column))
     }
 
     fn to_git_error(self, message: String) -> Result<T> {
-        self.map_err(|_| DriftOpsError::git(message))
+        self.map_err(|_| KanonGraphError::git(message))
     }
 
     fn to_config_parse_error(self, message: String) -> Result<T> {
-        self.map_err(|e| DriftOpsError::config_parse(message, Some(e.into())))
+        self.map_err(|e| KanonGraphError::config_parse(message, Some(e.into())))
     }
 }
 
 // Add the From implementations back
-impl From<std::io::Error> for DriftOpsError {
+impl From<std::io::Error> for KanonGraphError {
     fn from(source: std::io::Error) -> Self {
         // This conversion is typically used when a PathBuf is not readily available
-        // For errors where a path is known, prefer using DriftOpsError::io(path, source)
+        // For errors where a path is known, prefer using KanonGraphError::io(path, source)
         Self::Io {
             path: PathBuf::new(),
             source,
         }
     }
 }
-impl From<serde_json::Error> for DriftOpsError {
+impl From<serde_json::Error> for KanonGraphError {
     fn from(source: serde_json::Error) -> Self {
         Self::Internal {
             message: format!("JSON serialization/deserialization error: {}", source),
@@ -449,7 +449,7 @@ impl From<serde_json::Error> for DriftOpsError {
 /// A utility for collecting multiple errors during parsing or processing.
 #[derive(Debug, Default)]
 pub struct ErrorCollector {
-    errors: Vec<DriftOpsError>,
+    errors: Vec<KanonGraphError>,
 }
 
 impl ErrorCollector {
@@ -460,7 +460,7 @@ impl ErrorCollector {
     }
 
     /// Add an error to the collection.
-    pub fn add(&mut self, error: DriftOpsError) {
+    pub fn add(&mut self, error: KanonGraphError) {
         self.errors.push(error);
     }
 
@@ -478,7 +478,7 @@ impl ErrorCollector {
 
     /// Convert to a Result, returning Multiple error if there are any errors.
     pub fn into_result(self) -> Result<()> {
-        DriftOpsError::collect(self.errors)
+        KanonGraphError::collect(self.errors)
     }
 }
 

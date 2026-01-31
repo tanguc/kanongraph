@@ -62,8 +62,8 @@ static GCS_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 /// # Examples
 ///
 /// ```rust
-/// use driftops::parser::parse_module_source;
-/// use driftops::types::ModuleSource;
+/// use kanongraph::parser::parse_module_source;
+/// use kanongraph::types::ModuleSource;
 ///
 /// // Registry source
 /// let source = parse_module_source("hashicorp/consul/aws").unwrap();
@@ -143,8 +143,8 @@ fn try_parse_git_source(source: &str) -> Option<ModuleSource> {
         let url = caps.get(1)?.as_str().to_string();
         let ref_ = caps.get(2).map(|m| m.as_str().to_string());
         let subdir = caps.get(3).map(|m| m.as_str().to_string());
-        
-        return Some(ModuleSource::Git { host: url.clone(), url, ref_, subdir });
+
+        return Some(ModuleSource::Git { host: format!("git::{}", url.clone()), url, ref_, subdir });
     }
 
     // git@host:path format

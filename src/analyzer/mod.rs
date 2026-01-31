@@ -21,8 +21,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use driftops::analyzer::Analyzer;
-//! use driftops::Config;
+//! use kanongraph::analyzer::Analyzer;
+//! use kanongraph::Config;
 //!
 //! let config = Config::default();
 //! let analyzer = Analyzer::new(&config);

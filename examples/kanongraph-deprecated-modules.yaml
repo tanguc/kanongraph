@@ -1,5 +1,5 @@
-# DriftOps Configuration File
-# https://github.com/yourusername/driftops
+# KanonGraph Configuration File
+# https://github.com/yourusername/kanongraph
 #
 # This is an example configuration file. Copy it to your project root
 # and customize as needed.
@@ -52,7 +52,7 @@ output:
 # Git options (for cloning repositories)
 git:
   # Authentication token (can use environment variable)
-  # Uncomment and set your token, or use DRIFTOPS_GIT_TOKEN env var
+  # Uncomment and set your token, or use KANONGRAPH_GIT_TOKEN env var
   # token: ${GITHUB_TOKEN}
   
   # Branch to checkout (default: repository's default branch)
@@ -114,19 +114,36 @@ deprecations:
         severity: error
         replacement: "claranet/azure-log-mngt-v3/azurerm"
 
+    "git@ssh.dev.azure.com:v3/lpl-sources/Terraform/mod-azure-gov-tags":
+      - version: "< 3.0.0"
+        reason: "CVE-2025-2393 detected during security audit by Alpha team"
+        severity: error
+        replacement: "3.0.0"
+
+    "git@ssh.dev.azure.com:v3/lpl-sources/Terraform/mod-azure-gov-security-ips":
+      - version: "< 12.0.0"
+        reason: "Deprecated module, migrate to v12.0.0 or later"
+        severity: error
+        replacement: ">= 12.0.0"
+
+    "git@ssh.dev.azure.com:v3/lpl-sources/Terraform/mod-azurerm-resource-group":
+      - version: "< 3.0.0"
+        reason: "Deprecated module, migrate to v3.0.0 or later"
+        severity: error
+        replacement: ">= 3.0.0"
+
   providers:
     # Provider source (qualified name like "hashicorp/azurerm")
     "hashicorp/azurerm":
-      versions:
-        - version: "> 0.0.1, < 3.50.0"
-          reason: "Multiple CVEs in versions before 3.50.0"
-          severity: error
-          replacement: ">= 3.50.0"
-        
-        - version: ">= 4.0.0, < 4.50.0"
-          reason: "Known authentication issues in early 4.x versions"
-          severity: warning
-          replacement: ">= 4.50.0"
+      - version: "> 0.0.1, < 3.50.0"
+        reason: "Multiple CVEs in versions before 3.50.0"
+        severity: error
+        replacement: ">= 3.50.0"
+      
+      - version: ">= 4.0.0, < 4.50.0"
+        reason: "Known authentication issues in early 4.x versions"
+        severity: warning
+        replacement: ">= 4.50.0"
 
   # Blocked module patterns
   # Use to prevent usage of deprecated or insecure modules

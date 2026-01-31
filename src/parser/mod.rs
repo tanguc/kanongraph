@@ -12,8 +12,8 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use driftops::parser::HclParser;
-//! use driftops::Config;
+//! use kanongraph::parser::HclParser;
+//! use kanongraph::Config;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {

@@ -8,8 +8,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use driftops::reporter::Reporter;
-//! use driftops::{Config, ScanResult};
+//! use kanongraph::reporter::Reporter;
+//! use kanongraph::{Config, ScanResult};
 //!
 //! let config = Config::default();
 //! let reporter = Reporter::new(&config);

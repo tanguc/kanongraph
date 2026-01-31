@@ -1,22 +1,22 @@
 [package]
-name = "driftops"
+name = "kanongraph"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.70"
-authors = ["DriftOps Team"]
+authors = ["KanonGraph Team"]
 description = "Terraform/OpenTofu module constraint analyzer and dependency mapper"
 license = "MIT"
-repository = "https://github.com/yourusername/driftops"
+repository = "https://github.com/yourusername/kanongraph"
 readme = "README.md"
 keywords = ["terraform", "opentofu", "hcl", "infrastructure", "devops"]
 categories = ["command-line-utilities", "development-tools"]
 
 [lib]
-name = "driftops"
+name = "kanongraph"
 path = "src/lib.rs"
 
 [[bin]]
-name = "driftops"
+name = "kanongraph"
 path = "src/main.rs"
 
 [dependencies]

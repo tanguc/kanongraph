@@ -1,8 +1,8 @@
-//! # DriftOps
+//! # KanonGraph
 //!
 //! A Terraform/OpenTofu module constraint analyzer and dependency mapper.
 //!
-//! DriftOps scans Terraform/OpenTofu repositories, parses HCL files, builds
+//! KanonGraph scans Terraform/OpenTofu repositories, parses HCL files, builds
 //! dependency graphs, and detects version constraint conflicts, deprecated
 //! modules, and risky patterns.
 //!
@@ -23,7 +23,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use driftops::{Scanner, Config, ReportFormat};
+//! use kanongraph::{Scanner, Config, ReportFormat};
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -64,7 +64,7 @@ pub mod vcs;
 pub mod vcs_clients;
 // Re-export commonly used types at crate root
 pub use config::Config;
-pub use error::{DriftOpsError, Result};
+pub use error::{KanonGraphError, Result};
 use tokio::io::AsyncReadExt;
 pub use vcs::VcsPlatform;
 pub use types::{ 
@@ -76,7 +76,7 @@ use std::path::Path;
 
 /// Main scanner orchestrator that coordinates all analysis operations.
 ///
-/// The `Scanner` is the primary entry point for using DriftOps as a library.
+/// The `Scanner` is the primary entry point for using KanonGraph as a library.
 /// It handles:
 /// - Cloning remote repositories
 /// - Scanning local directories
@@ -85,7 +85,7 @@ use std::path::Path;
 /// # Example
 ///
 /// ```rust,no_run
-/// use driftops::{Scanner, Config};
+/// use kanongraph::{Scanner, Config};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -252,7 +252,7 @@ impl Scanner {
                 bb_client.discover_repositories(org_spec, &token).await?
             }
             VcsPlatform::Local => {
-                return Err(crate::error::DriftOpsError::ConfigParse {
+                return Err(crate::error::KanonGraphError::ConfigParse {
                     message: "Cannot use Local platform for organization scanning".to_string(),
                     source: None,
                 });

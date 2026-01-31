@@ -1,9 +1,9 @@
-//! Integration tests for DriftOps.
+//! Integration tests for KanonGraph.
 //!
 //! These tests verify the end-to-end functionality of the scanner,
 //! parser, analyzer, and reporter modules.
 
-use driftops::{Config, Scanner};
+use kanongraph::{Config, Scanner};
 use std::path::PathBuf;
 
 /// Get the path to the test fixtures directory.
@@ -13,7 +13,7 @@ fn fixtures_path() -> PathBuf {
 
 mod parser_tests {
     use super::*;
-    use driftops::parser::HclParser;
+    use kanongraph::parser::HclParser;
 
     #[tokio::test]
     async fn test_parse_simple_terraform() {
@@ -75,10 +75,10 @@ mod parser_tests {
 
 mod analyzer_tests {
     use super::*;
-    use driftops::analyzer::Analyzer;
-    use driftops::graph::GraphBuilder;
-    use driftops::parser::HclParser;
-    use driftops::types::FindingCategory;
+    use kanongraph::analyzer::Analyzer;
+    use kanongraph::graph::GraphBuilder;
+    use kanongraph::parser::HclParser;
+    use kanongraph::types::FindingCategory;
 
     #[tokio::test]
     async fn test_detect_missing_constraints() {
@@ -181,8 +181,8 @@ mod scanner_tests {
 
 mod reporter_tests {
     use super::*;
-    use driftops::reporter::Reporter;
-    use driftops::types::ReportFormat;
+    use kanongraph::reporter::Reporter;
+    use kanongraph::types::ReportFormat;
 
     #[tokio::test]
     async fn test_json_report() {
@@ -212,7 +212,7 @@ mod reporter_tests {
 
         let text = reporter.generate(&result, ReportFormat::Text).unwrap();
 
-        assert!(text.contains("DriftOps Analysis Report"));
+        assert!(text.contains("KanonGraph Analysis Report"));
         assert!(text.contains("Summary"));
     }
 
@@ -228,7 +228,7 @@ mod reporter_tests {
         let html = reporter.generate(&result, ReportFormat::Html).unwrap();
 
         assert!(html.contains("<!DOCTYPE html>"));
-        assert!(html.contains("DriftOps Analysis Report"));
+        assert!(html.contains("KanonGraph Analysis Report"));
         // HTML should be self-contained
         assert!(html.contains("<style>"));
     }
@@ -236,9 +236,9 @@ mod reporter_tests {
 
 mod graph_tests {
     use super::*;
-    use driftops::graph::{export_graph, GraphBuilder};
-    use driftops::parser::HclParser;
-    use driftops::types::GraphFormat;
+    use kanongraph::graph::{export_graph, GraphBuilder};
+    use kanongraph::parser::HclParser;
+    use kanongraph::types::GraphFormat;
 
     #[tokio::test]
     async fn test_graph_building() {

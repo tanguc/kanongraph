@@ -1,10 +1,10 @@
-//! DriftOps CLI entry point.
+//! KanonGraph CLI entry point.
 //!
-//! This binary provides the command-line interface for DriftOps.
+//! This binary provides the command-line interface for KanonGraph.
 
 use clap::Parser;
-use driftops::cli::{Cli, Commands};
-use driftops::{Config, Scanner, VcsPlatform};
+use kanongraph::cli::{Cli, Commands};
+use kanongraph::{Config, Scanner, VcsPlatform};
 use std::error::Error;
 use std::process::ExitCode;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -43,25 +43,25 @@ async fn main() -> ExitCode {
             if backtrace.status() == std::backtrace::BacktraceStatus::Captured {
                 eprintln!("\nStack backtrace:");
                 let backtrace_str = format!("{backtrace}");
-                let mut in_driftops = false;
+                let mut in_kanongraph = false;
                 let mut prev_was_at = false;
 
                 for line in backtrace_str.lines() {
                     let trimmed = line.trim();
 
-                    // Check if this is a driftops frame
-                    if trimmed.contains("driftops::") {
-                        in_driftops = true;
+                    // Check if this is a kanongraph frame
+                    if trimmed.contains("kanongraph::") {
+                        in_kanongraph = true;
                         prev_was_at = false;
                         eprintln!("{line}");
-                    } else if in_driftops && trimmed.starts_with("at ") && trimmed.contains("./src/") {
-                        // This is the location line for a driftops frame
+                    } else if in_kanongraph && trimmed.starts_with("at ") && trimmed.contains("./src/") {
+                        // This is the location line for a kanongraph frame
                         eprintln!("{line}");
-                        in_driftops = false;
+                        in_kanongraph = false;
                         prev_was_at = true;
                     } else if !prev_was_at && line.starts_with("   ") && line.contains(":") {
                         // This might be a frame number, check next iteration
-                        in_driftops = false;
+                        in_kanongraph = false;
                         prev_was_at = false;
                     } else {
                         prev_was_at = false;
@@ -81,15 +81,15 @@ fn init_logging(verbose: u8, quiet: bool) {
         // First try to use RUST_LOG from environment, otherwise use verbose flag
         EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| {
-                // Default filter: show logs for driftops only, suppress all other crates
+                // Default filter: show logs for kanongraph only, suppress all other crates
                 let base_level = match verbose {
                     0 => "warn",
                     1 => "info",
                     2 => "debug",
                     _ => "trace",
                 };
-                // Filter string: driftops at specified level, everything else at warn
-                EnvFilter::new(&format!("warn,driftops={}", base_level))
+                // Filter string: kanongraph at specified level, everything else at warn
+                EnvFilter::new(&format!("warn,kanongraph={}", base_level))
             })
     };
 
@@ -139,7 +139,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             };
 
             // Generate report
-            let reporter = driftops::reporter::Reporter::new(&config);
+            let reporter = kanongraph::reporter::Reporter::new(&config);
             let report = reporter.generate(&result, args.format)?;
 
             // Output report
@@ -169,7 +169,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             let result = scanner.scan_paths(&paths).await?;
 
             // Output graph in requested format
-            let graph_output = driftops::graph::export_graph(&result.graph, args.format)?;
+            let graph_output = kanongraph::graph::export_graph(&result.graph, args.format)?;
 
             if let Some(output_path) = args.output {
                 std::fs::write(&output_path, &graph_output)?;
@@ -184,14 +184,14 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         Commands::Init => {
             // Generate example configuration file
             let example_config = Config::example_yaml();
-            let config_path = std::path::Path::new("driftops.yaml");
+            let config_path = std::path::Path::new("kanongraph.yaml");
 
             if config_path.exists() {
                 anyhow::bail!("Configuration file already exists: {}", config_path.display());
             }
 
             std::fs::write(config_path, example_config)?;
-            println!("Created example configuration: driftops.yaml");
+            println!("Created example configuration: kanongraph.yaml");
             Ok(ExitCode::from(0))
         }
 
@@ -223,7 +223,7 @@ fn load_config(cli: &Cli) -> anyhow::Result<Config> {
     }
 
     // Look for default config files
-    let default_paths = ["driftops.yaml", "driftops.yml", ".driftops.yaml"];
+    let default_paths = ["kanongraph.yaml", "kanongraph.yml", ".kanongraph.yaml"];
     tracing::debug!("Searching for default configuration files");
     for path in &default_paths {
         if std::path::Path::new(path).exists() {

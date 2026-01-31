@@ -1,8 +1,8 @@
-# DriftOps Design Document
+# KanonGraph Design Document
 
 ## Overview
 
-DriftOps is a Terraform/OpenTofu module constraint analyzer and dependency mapper. This document explains the key design decisions, data flow, and architecture of the system.
+KanonGraph is a Terraform/OpenTofu module constraint analyzer and dependency mapper. This document explains the key design decisions, data flow, and architecture of the system.
 
 ## Goals
 
@@ -31,7 +31,7 @@ DriftOps is a Terraform/OpenTofu module constraint analyzer and dependency mappe
 │                                                                          │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
 │   │ Local Paths  │    │  Git URLs    │    │   Config     │             │
-│   │  ./terraform │    │ github.com/  │    │ driftops.yaml│             │
+│   │  ./terraform │    │ github.com/  │    │ kanongraph.yaml│             │
 │   └──────────────┘    └──────────────┘    └──────────────┘             │
 │          │                   │                   │                      │
 └──────────┼───────────────────┼───────────────────┼──────────────────────┘

@@ -61,8 +61,8 @@
 //! ## Building the Graph
 //!
 //! ```rust,no_run
-//! use driftops::graph::GraphBuilder;
-//! use driftops::types::{ModuleRef, ProviderRef, RuntimeRef};
+//! use kanongraph::graph::GraphBuilder;
+//! use kanongraph::types::{ModuleRef, ProviderRef, RuntimeRef};
 //!
 //! let builder = GraphBuilder::new();
 //! let modules: Vec<ModuleRef> = vec![/* ... */];
@@ -75,7 +75,7 @@
 //! ## Querying Dependencies
 //!
 //! ```rust,ignore
-//! use driftops::graph::DependencyGraph;
+//! use kanongraph::graph::DependencyGraph;
 //! let graph = DependencyGraph::new();
 //! // Get all modules that depend on a specific module
 //! let dependents = graph.get_dependents("vpc-module-id");
@@ -90,7 +90,7 @@
 //! ## Detecting Cycles
 //!
 //! ```rust,ignore
-//! use driftops::graph::DependencyGraph;
+//! use kanongraph::graph::DependencyGraph;
 //! let graph = DependencyGraph::new();
 //! if let Some(cycle) = graph.find_cycle() {
 //!     println!("Circular dependency detected: {:?}", cycle);
@@ -150,13 +150,13 @@
 //! # Example: Complete Workflow
 //!
 //! ```rust,no_run
-//! use driftops::graph::{GraphBuilder, DependencyGraph, export_graph};
-//! use driftops::types::{GraphFormat, ModuleRef, ProviderRef};
+//! use kanongraph::graph::{GraphBuilder, DependencyGraph, export_graph};
+//! use kanongraph::types::{GraphFormat, ModuleRef, ProviderRef};
 //!
 //! // 1. Parse HCL files to get modules and providers
 //! let modules: Vec<ModuleRef> = vec![/* from parser */];
 //! let providers: Vec<ProviderRef> = vec![/* from parser */];
-//! let runtimes: Vec<driftops::types::RuntimeRef> = vec![/* from parser */];
+//! let runtimes: Vec<kanongraph::types::RuntimeRef> = vec![/* from parser */];
 //!
 //! // 2. Build the dependency graph
 //! let builder = GraphBuilder::new();
