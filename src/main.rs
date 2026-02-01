@@ -1,10 +1,10 @@
-//! KanonGraph CLI entry point.
+//! MonPhare CLI entry point.
 //!
-//! This binary provides the command-line interface for KanonGraph.
+//! This binary provides the command-line interface for MonPhare.
 
 use clap::Parser;
-use kanongraph::cli::{Cli, Commands};
-use kanongraph::{Config, Scanner, VcsPlatform};
+use monphare::cli::{Cli, Commands};
+use monphare::{Config, Scanner, VcsPlatform};
 use std::error::Error;
 use std::process::ExitCode;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -43,25 +43,25 @@ async fn main() -> ExitCode {
             if backtrace.status() == std::backtrace::BacktraceStatus::Captured {
                 eprintln!("\nStack backtrace:");
                 let backtrace_str = format!("{backtrace}");
-                let mut in_kanongraph = false;
+                let mut in_monphare = false;
                 let mut prev_was_at = false;
 
                 for line in backtrace_str.lines() {
                     let trimmed = line.trim();
 
-                    // Check if this is a kanongraph frame
-                    if trimmed.contains("kanongraph::") {
-                        in_kanongraph = true;
+                    // Check if this is a monphare frame
+                    if trimmed.contains("monphare::") {
+                        in_monphare = true;
                         prev_was_at = false;
                         eprintln!("{line}");
-                    } else if in_kanongraph && trimmed.starts_with("at ") && trimmed.contains("./src/") {
-                        // This is the location line for a kanongraph frame
+                    } else if in_monphare && trimmed.starts_with("at ") && trimmed.contains("./src/") {
+                        // This is the location line for a monphare frame
                         eprintln!("{line}");
-                        in_kanongraph = false;
+                        in_monphare = false;
                         prev_was_at = true;
                     } else if !prev_was_at && line.starts_with("   ") && line.contains(":") {
                         // This might be a frame number, check next iteration
-                        in_kanongraph = false;
+                        in_monphare = false;
                         prev_was_at = false;
                     } else {
                         prev_was_at = false;
@@ -81,15 +81,15 @@ fn init_logging(verbose: u8, quiet: bool) {
         // First try to use RUST_LOG from environment, otherwise use verbose flag
         EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| {
-                // Default filter: show logs for kanongraph only, suppress all other crates
+                // Default filter: show logs for monphare only, suppress all other crates
                 let base_level = match verbose {
                     0 => "warn",
                     1 => "info",
                     2 => "debug",
                     _ => "trace",
                 };
-                // Filter string: kanongraph at specified level, everything else at warn
-                EnvFilter::new(&format!("warn,kanongraph={}", base_level))
+                // Filter string: monphare at specified level, everything else at warn
+                EnvFilter::new(&format!("warn,monphare={}", base_level))
             })
     };
 
@@ -139,7 +139,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             };
 
             // Generate report
-            let reporter = kanongraph::reporter::Reporter::new(&config);
+            let reporter = monphare::reporter::Reporter::new(&config);
             let report = reporter.generate(&result, args.format)?;
 
             // Output report
@@ -169,7 +169,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             let result = scanner.scan_paths(&paths).await?;
 
             // Output graph in requested format
-            let graph_output = kanongraph::graph::export_graph(&result.graph, args.format)?;
+            let graph_output = monphare::graph::export_graph(&result.graph, args.format)?;
 
             if let Some(output_path) = args.output {
                 std::fs::write(&output_path, &graph_output)?;
@@ -184,14 +184,14 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         Commands::Init => {
             // Generate example configuration file
             let example_config = Config::example_yaml();
-            let config_path = std::path::Path::new("kanongraph.yaml");
+            let config_path = std::path::Path::new("monphare.yaml");
 
             if config_path.exists() {
                 anyhow::bail!("Configuration file already exists: {}", config_path.display());
             }
 
             std::fs::write(config_path, example_config)?;
-            println!("Created example configuration: kanongraph.yaml");
+            println!("Created example configuration: monphare.yaml");
             Ok(ExitCode::from(0))
         }
 
@@ -223,7 +223,7 @@ fn load_config(cli: &Cli) -> anyhow::Result<Config> {
     }
 
     // Look for default config files
-    let default_paths = ["kanongraph.yaml", "kanongraph.yml", ".kanongraph.yaml"];
+    let default_paths = ["monphare.yaml", "monphare.yml", ".monphare.yaml"];
     tracing::debug!("Searching for default configuration files");
     for path in &default_paths {
         if std::path::Path::new(path).exists() {

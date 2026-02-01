@@ -4,7 +4,7 @@
 
 ### Project Renaming Decision
 
-**Decision:** Rename project from `kanongraph` to **`mon-infra-phare`**
+**Decision:** Rename project from `monphare` to **`monphare`**
 
 **Rationale:**
 - "Mon Infra Phare" = "My Infrastructure Lighthouse" (French + English)
@@ -67,7 +67,7 @@
 
 ```bash
 # Define deprecations directly via CLI
-mon-infra-phare scan ./terraform \
+monphare scan ./terraform \
   --deprecate-module ssh.dev.azure.com/v3/org/Terraform/mod-azurerm-search \
   --deprecate-tag 3.2.0 \
   --deprecate-tag 3.1.0 \
@@ -76,19 +76,19 @@ mon-infra-phare scan ./terraform \
   --deprecate-replacement "Use tag 3.2.1+"
 
 # Multiple modules in one command
-mon-infra-phare scan ./terraform \
+monphare scan ./terraform \
   --deprecate-module ssh.dev.azure.com/.../module-a \
   --deprecate-tag 3.0.0 \
   --deprecate-module terraform-aws-modules/vpc/aws \
   --deprecate-version "< 5.0.0"
 
 # Provider deprecation
-mon-infra-phare scan ./terraform \
+monphare scan ./terraform \
   --deprecate-provider hashicorp/azurerm \
   --deprecate-version "< 3.0.0"
 
 # Runtime deprecation
-mon-infra-phare scan ./terraform \
+monphare scan ./terraform \
   --deprecate-runtime terraform \
   --deprecate-version "< 1.0.0"
 ```
@@ -156,7 +156,7 @@ fn test_something() {
 ### Next Steps
 
 **Immediate (v0.1):**
-- [ ] Rename project from `kanongraph` to `mon-infra-phare`
+- [ ] Rename project from `monphare` to `monphare`
 - [ ] Implement inline `--deprecate-*` CLI flags
 - [ ] Add `--only-deprecations` filter flag
 - [ ] Update all docs/branding

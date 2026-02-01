@@ -1402,50 +1402,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kanongraph"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "askama",
- "assert_cmd",
- "async-trait",
- "azure_devops_rust_api",
- "base64 0.21.7",
- "chrono",
- "clap",
- "colored",
- "comfy-table",
- "dashmap",
- "dirs",
- "futures",
- "git2",
- "glob",
- "hcl-rs",
- "indicatif",
- "mockall",
- "petgraph",
- "predicates",
- "pretty_assertions",
- "rayon",
- "regex",
- "reqwest 0.11.27",
- "semver",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "test-case",
- "thiserror",
- "tokio",
- "tokio-test",
- "tracing",
- "tracing-subscriber",
- "url",
- "walkdir",
- "wiremock",
-]
-
-[[package]]
 name = "kstring"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1629,6 +1585,50 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "monphare"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "assert_cmd",
+ "async-trait",
+ "azure_devops_rust_api",
+ "base64 0.21.7",
+ "chrono",
+ "clap",
+ "colored",
+ "comfy-table",
+ "dashmap",
+ "dirs",
+ "futures",
+ "git2",
+ "glob",
+ "hcl-rs",
+ "indicatif",
+ "mockall",
+ "petgraph",
+ "predicates",
+ "pretty_assertions",
+ "rayon",
+ "regex",
+ "reqwest 0.11.27",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "test-case",
+ "thiserror",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "walkdir",
+ "wiremock",
 ]
 
 [[package]]

@@ -62,8 +62,8 @@ static GCS_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 /// # Examples
 ///
 /// ```rust
-/// use kanongraph::parser::parse_module_source;
-/// use kanongraph::types::ModuleSource;
+/// use monphare::parser::parse_module_source;
+/// use monphare::types::ModuleSource;
 ///
 /// // Registry source
 /// let source = parse_module_source("hashicorp/consul/aws").unwrap();

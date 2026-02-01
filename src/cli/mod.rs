@@ -14,43 +14,43 @@
 //!
 //! ```bash
 //! # Scan local directories
-//! kanongraph scan ./terraform ./modules
+//! monphare scan ./terraform ./modules
 //!
 //! # Scan remote repositories
-//! kanongraph scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
+//! monphare scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
 //!
 //! # Generate JSON report
-//! kanongraph scan ./terraform --format json --output report.json
+//! monphare scan ./terraform --format json --output report.json
 //!
 //! # Generate dependency graph
-//! kanongraph graph ./terraform --format dot --output deps.dot
+//! monphare graph ./terraform --format dot --output deps.dot
 //!
 //! # Initialize configuration
-//! kanongraph init
+//! monphare init
 //!
 //! # Validate configuration
-//! kanongraph validate kanongraph.yaml
+//! monphare validate monphare.yaml
 //! ```
 
 use crate::types::{GraphFormat, ReportFormat};
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
-/// KanonGraph - Terraform/OpenTofu module constraint analyzer and dependency mapper.
+/// MonPhare - Terraform/OpenTofu module constraint analyzer and dependency mapper.
 #[derive(Parser, Debug)]
 #[command(
-    name = "kanongraph",
+    name = "monphare",
     author,
     version,
     about = "Terraform/OpenTofu module constraint analyzer and dependency mapper",
-    long_about = "KanonGraph scans Terraform/OpenTofu repositories, parses HCL files, builds \
+    long_about = "MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds \
                   dependency graphs, and detects version constraint conflicts, deprecated \
                   modules, and risky patterns.",
-    after_help = "For more information, visit: https://github.com/yourusername/kanongraph"
+    after_help = "For more information, visit: https://github.com/yourusername/monphare"
 )]
 pub struct Cli {
     /// Path to configuration file
-    #[arg(short, long, global = true, env = "KANONGRAPH_CONFIG")]
+    #[arg(short, long, global = true, env = "MONPHARE_CONFIG")]
     pub config: Option<PathBuf>,
 
     /// Increase verbosity (-v, -vv, -vvv)
@@ -147,7 +147,7 @@ pub struct ScanArgs {
     pub branch: Option<String>,
 
     /// Git authentication token for private repositories
-    #[arg(long, env = "KANONGRAPH_GIT_TOKEN", hide_env_values = true)]
+    #[arg(long, env = "MONPHARE_GIT_TOKEN", hide_env_values = true)]
     pub git_token: Option<String>,
 }
 
@@ -183,7 +183,7 @@ pub struct GraphArgs {
 #[derive(Args, Debug)]
 pub struct ValidateArgs {
     /// Path to configuration file to validate
-    #[arg(value_name = "FILE", default_value = "kanongraph.yaml")]
+    #[arg(value_name = "FILE", default_value = "monphare.yaml")]
     pub config: PathBuf,
 }
 
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_scan_command() {
-        let cli = Cli::parse_from(["kanongraph", "scan", "./terraform"]);
+        let cli = Cli::parse_from(["monphare", "scan", "./terraform"]);
         match cli.command {
             Commands::Scan(args) => {
                 assert_eq!(args.paths.len(), 1);
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_scan_with_options() {
         let cli = Cli::parse_from([
-            "kanongraph",
+            "monphare",
             "scan",
             "./terraform",
             "--format",
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn test_scan_with_repos() {
         let cli = Cli::parse_from([
-            "kanongraph",
+            "monphare",
             "scan",
             "--repo",
             "https://github.com/org/repo1",
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_graph_command() {
         let cli = Cli::parse_from([
-            "kanongraph",
+            "monphare",
             "graph",
             "./terraform",
             "--format",
@@ -269,13 +269,13 @@ mod tests {
 
     #[test]
     fn test_init_command() {
-        let cli = Cli::parse_from(["kanongraph", "init"]);
+        let cli = Cli::parse_from(["monphare", "init"]);
         assert!(matches!(cli.command, Commands::Init));
     }
 
     #[test]
     fn test_validate_command() {
-        let cli = Cli::parse_from(["kanongraph", "validate", "custom.yaml"]);
+        let cli = Cli::parse_from(["monphare", "validate", "custom.yaml"]);
         match cli.command {
             Commands::Validate(args) => {
                 assert_eq!(args.config, PathBuf::from("custom.yaml"));
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn test_global_options() {
         let cli = Cli::parse_from([
-            "kanongraph",
+            "monphare",
             "-vvv",
             "--config",
             "custom.yaml",
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_alias() {
-        let cli = Cli::parse_from(["kanongraph", "s", "./terraform"]);
+        let cli = Cli::parse_from(["monphare", "s", "./terraform"]);
         assert!(matches!(cli.command, Commands::Scan(_)));
     }
 }

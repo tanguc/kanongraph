@@ -1,9 +1,9 @@
-//! Integration tests for KanonGraph.
+//! Integration tests for MonPhare.
 //!
 //! These tests verify the end-to-end functionality of the scanner,
 //! parser, analyzer, and reporter modules.
 
-use kanongraph::{Config, Scanner};
+use monphare::{Config, Scanner};
 use std::path::PathBuf;
 
 /// Get the path to the test fixtures directory.
@@ -13,7 +13,7 @@ fn fixtures_path() -> PathBuf {
 
 mod parser_tests {
     use super::*;
-    use kanongraph::parser::HclParser;
+    use monphare::parser::HclParser;
 
     #[tokio::test]
     async fn test_parse_simple_terraform() {
@@ -75,10 +75,10 @@ mod parser_tests {
 
 mod analyzer_tests {
     use super::*;
-    use kanongraph::analyzer::Analyzer;
-    use kanongraph::graph::GraphBuilder;
-    use kanongraph::parser::HclParser;
-    use kanongraph::types::FindingCategory;
+    use monphare::analyzer::Analyzer;
+    use monphare::graph::GraphBuilder;
+    use monphare::parser::HclParser;
+    use monphare::types::FindingCategory;
 
     #[tokio::test]
     async fn test_detect_missing_constraints() {
@@ -145,8 +145,8 @@ mod scanner_tests {
 
 mod reporter_tests {
     use super::*;
-    use kanongraph::reporter::Reporter;
-    use kanongraph::types::ReportFormat;
+    use monphare::reporter::Reporter;
+    use monphare::types::ReportFormat;
 
     #[tokio::test]
     async fn test_json_report() {
@@ -176,7 +176,7 @@ mod reporter_tests {
 
         let text = reporter.generate(&result, ReportFormat::Text).unwrap();
 
-        assert!(text.contains("KanonGraph Analysis Report"));
+        assert!(text.contains("MonPhare Analysis Report"));
         assert!(text.contains("Summary"));
     }
 
@@ -192,7 +192,7 @@ mod reporter_tests {
         let html = reporter.generate(&result, ReportFormat::Html).unwrap();
 
         assert!(html.contains("<!DOCTYPE html>"));
-        assert!(html.contains("KanonGraph Analysis Report"));
+        assert!(html.contains("MonPhare Analysis Report"));
         // HTML should be self-contained
         assert!(html.contains("<style>"));
     }
@@ -200,9 +200,9 @@ mod reporter_tests {
 
 mod graph_tests {
     use super::*;
-    use kanongraph::graph::{export_graph, GraphBuilder};
-    use kanongraph::parser::HclParser;
-    use kanongraph::types::GraphFormat;
+    use monphare::graph::{export_graph, GraphBuilder};
+    use monphare::parser::HclParser;
+    use monphare::types::GraphFormat;
 
     #[tokio::test]
     async fn test_graph_building() {

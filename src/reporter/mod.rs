@@ -8,8 +8,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use kanongraph::reporter::Reporter;
-//! use kanongraph::{Config, ScanResult};
+//! use monphare::reporter::Reporter;
+//! use monphare::{Config, ScanResult};
 //!
 //! let config = Config::default();
 //! let reporter = Reporter::new(&config);

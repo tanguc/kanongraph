@@ -1,22 +1,22 @@
 [package]
-name = "kanongraph"
+name = "monphare"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.70"
-authors = ["KanonGraph Team"]
+authors = ["MonPhare Team"]
 description = "Terraform/OpenTofu module constraint analyzer and dependency mapper"
 license = "MIT"
-repository = "https://github.com/yourusername/kanongraph"
+repository = "https://github.com/yourusername/monphare"
 readme = "README.md"
 keywords = ["terraform", "opentofu", "hcl", "infrastructure", "devops"]
 categories = ["command-line-utilities", "development-tools"]
 
 [lib]
-name = "kanongraph"
+name = "monphare"
 path = "src/lib.rs"
 
 [[bin]]
-name = "kanongraph"
+name = "monphare"
 path = "src/main.rs"
 
 [dependencies]

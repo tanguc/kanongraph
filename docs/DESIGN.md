@@ -1,8 +1,8 @@
-# KanonGraph Design Document
+# MonPhare Design Document
 
 ## Overview
 
-KanonGraph is a Terraform/OpenTofu module constraint analyzer and dependency mapper. This document explains the key design decisions, data flow, and architecture of the system.
+MonPhare is a Terraform/OpenTofu module constraint analyzer and dependency mapper. This document explains the key design decisions, data flow, and architecture of the system.
 
 ## Goals
 
@@ -31,7 +31,7 @@ KanonGraph is a Terraform/OpenTofu module constraint analyzer and dependency map
 │                                                                          │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
 │   │ Local Paths  │    │  Git URLs    │    │   Config     │             │
-│   │  ./terraform │    │ github.com/  │    │ kanongraph.yaml│             │
+│   │  ./terraform │    │ github.com/  │    │ monphare.yaml│             │
 │   └──────────────┘    └──────────────┘    └──────────────┘             │
 │          │                   │                   │                      │
 └──────────┼───────────────────┼───────────────────┼──────────────────────┘

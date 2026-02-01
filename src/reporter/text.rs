@@ -66,7 +66,7 @@ impl ReportGenerator for TextReporter {
 impl TextReporter {
     /// Format the report header.
     fn format_header(&self) -> String {
-        let title = "KanonGraph Analysis Report";
+        let title = "MonPhare Analysis Report";
         let version = format!("v{}", env!("CARGO_PKG_VERSION"));
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
 
@@ -438,7 +438,7 @@ mod tests {
 
         let text = reporter.generate(&result).unwrap();
 
-        assert!(text.contains("KanonGraph Analysis Report"));
+        assert!(text.contains("MonPhare Analysis Report"));
         assert!(text.contains("Summary"));
         assert!(text.contains("Files scanned"));
     }

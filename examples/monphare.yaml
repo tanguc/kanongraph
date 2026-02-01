@@ -1,5 +1,5 @@
-# KanonGraph Configuration File
-# https://github.com/yourusername/kanongraph
+# MonPhare Configuration File
+# https://github.com/yourusername/monphare
 #
 # This is an example configuration file. Copy it to your project root
 # and customize as needed.
@@ -52,7 +52,7 @@ output:
 # Git options (for cloning repositories)
 git:
   # Authentication token (can use environment variable)
-  # Uncomment and set your token, or use KANONGRAPH_GIT_TOKEN env var
+  # Uncomment and set your token, or use MONPHARE_GIT_TOKEN env var
   # token: ${GITHUB_TOKEN}
   
   # Branch to checkout (default: repository's default branch)

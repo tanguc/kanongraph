@@ -46,8 +46,8 @@ use std::collections::HashMap;
 /// # Example
 ///
 /// ```rust,no_run
-/// use kanongraph::analyzer::Analyzer;
-/// use kanongraph::Config;
+/// use monphare::analyzer::Analyzer;
+/// use monphare::Config;
 ///
 /// let config = Config::default();
 /// let analyzer = Analyzer::new(&config);

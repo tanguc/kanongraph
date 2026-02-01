@@ -28,8 +28,8 @@ use std::collections::HashMap;
 /// # Example
 ///
 /// ```rust,no_run
-/// use kanongraph::graph::GraphBuilder;
-/// use kanongraph::types::{ModuleRef, ProviderRef, RuntimeRef};
+/// use monphare::graph::GraphBuilder;
+/// use monphare::types::{ModuleRef, ProviderRef, RuntimeRef};
 ///
 /// let builder = GraphBuilder::new();
 /// let modules: Vec<ModuleRef> = vec![/* ... */];

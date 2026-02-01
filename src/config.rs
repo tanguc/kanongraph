@@ -1,14 +1,14 @@
-//! Configuration module for KanonGraph.
+//! Configuration module for MonPhare.
 //!
 //! This module handles loading and validating configuration from:
-//! - YAML configuration files (`kanongraph.yaml`)
+//! - YAML configuration files (`monphare.yaml`)
 //! - Environment variables
 //! - CLI arguments
 //!
 //! # Configuration File Format
 //!
 //! ```yaml
-//! # kanongraph.yaml
+//! # monphare.yaml
 //!
 //! # Scanning options
 //! scan:
@@ -45,7 +45,7 @@
 //!   blocked_modules: []
 //! ```
 
-use crate::{config, error::{KanonGraphError, Result}};
+use crate::{config, error::{MonPhareError, Result}};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -138,7 +138,7 @@ impl GitOptions {
     /// Priority order:
     /// 1. Platform-specific config value
     /// 2. Environment variable (DO_{PLATFORM}_TOKEN)
-    /// 3. Legacy environment variable (KANONGRAPH_GIT_TOKEN)
+    /// 3. Legacy environment variable (MONPHARE_GIT_TOKEN)
     #[must_use]
     pub fn get_token_for_platform(&self, platform: &str) -> Result<String> {
         tracing::debug!(platform = %platform, "Getting token for platform");
@@ -155,7 +155,7 @@ impl GitOptions {
             "ado" | "azure" | "azure-devops" => self.azure_devops_token.as_deref(),
             "bitbucket" => self.bitbucket_token.as_deref(),
             _ => {
-                return Err(KanonGraphError::ConfigMissing {
+                return Err(MonPhareError::ConfigMissing {
                     key: format!("Unsupported platform: {}", platform)
                 });
             }
@@ -181,15 +181,15 @@ impl GitOptions {
         }
 
         // 3. Fallback to legacy environment variable
-        get_non_empty_env("KANONGRAPH_GIT_TOKEN")
+        get_non_empty_env("MONPHARE_GIT_TOKEN")
             .map(|token| {
-                tracing::warn!(platform = %platform, "Using token from legacy KANONGRAPH_GIT_TOKEN environment variable");
+                tracing::warn!(platform = %platform, "Using token from legacy MONPHARE_GIT_TOKEN environment variable");
                 token
             })
             .ok_or_else(|| {
                 tracing::error!(platform = %platform, env_var = %env_var_name, "No token found for platform");
-                KanonGraphError::ConfigMissing {
-                    key: format!("{} token - please set {} environment variable or configure in kanongraph.yaml",
+                MonPhareError::ConfigMissing {
+                    key: format!("{} token - please set {} environment variable or configure in monphare.yaml",
                         platform, env_var_name)
                 }
             })
@@ -392,7 +392,7 @@ impl Config {
         let expanded = expand_env_vars(content);
         tracing::debug!("Expanded environment variables in configuration");
 
-        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| KanonGraphError::ConfigParse {
+        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| MonPhareError::ConfigParse {
             message: e.to_string(),
             source: None,
         })?;
@@ -409,8 +409,8 @@ impl Config {
     /// Generate an example YAML configuration.
     #[must_use]
     pub fn example_yaml() -> String {
-        r#"# KanonGraph Configuration File
-# https://github.com/yourusername/kanongraph
+        r#"# MonPhare Configuration File
+# https://github.com/yourusername/monphare
 
 # Scanning options
 scan:

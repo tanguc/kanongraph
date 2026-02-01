@@ -4,7 +4,7 @@
 
 use crate::VersionRange;
 use crate::config::Config;
-use crate::error::{KanonGraphError, ErrorCollector, Result};
+use crate::error::{MonPhareError, ErrorCollector, Result};
 use crate::parser::{Parser, SKIP_FILES, TERRAFORM_EXTENSIONS};
 use crate::types::{Constraint, ModuleRef, ParsedHcl, ProviderRef, RuntimeRef, RuntimeSource};
 
@@ -40,7 +40,7 @@ impl HclParser {
     /// for any file (unless `continue_on_error` is enabled in config).
     pub async fn parse_directory(&self, path: &Path) -> Result<ParsedHcl> {
         if !path.exists() {
-            return Err(KanonGraphError::DirectoryNotFound {
+            return Err(MonPhareError::DirectoryNotFound {
                 path: path.to_path_buf(),
             });
         }
@@ -122,7 +122,7 @@ impl HclParser {
     pub async fn parse_file(&self, path: &Path, repository: Option<&str>) -> Result<ParsedHcl> {
         let content = tokio::fs::read_to_string(path)
             .await
-            .map_err(|e| KanonGraphError::io(path, e))?;
+            .map_err(|e| MonPhareError::io(path, e))?;
 
         self.parse_content(&content, path, repository)
     }
@@ -174,7 +174,7 @@ impl Parser for HclParser {
         repository: Option<&str>,
     ) -> Result<ParsedHcl> {
         // Parse HCL content
-        let body: Body = hcl::from_str(content).map_err(|e| KanonGraphError::HclParse {
+        let body: Body = hcl::from_str(content).map_err(|e| MonPhareError::HclParse {
             file: file_path.to_path_buf(),
             message: e.to_string(),
             line: None,
@@ -330,7 +330,7 @@ fn parse_required_version(expr: &Expression, file_path: &Path) -> Result<Constra
             file = %file_path.display(),
             "Required version is not a string expression, but got {expr:?}"
         );
-        return Err(KanonGraphError::HclParse {
+        return Err(MonPhareError::HclParse {
             file: file_path.to_path_buf(),
             message: format!("Required version is not a string expression, but got {expr:?}"),
             line: None,

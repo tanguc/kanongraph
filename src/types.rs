@@ -1,4 +1,4 @@
-//! Core data types used throughout KanonGraph.
+//! Core data types used throughout MonPhare.
 //!
 //! This module defines the fundamental data structures for representing:
 //! - Terraform/OpenTofu modules and providers
@@ -62,8 +62,8 @@ pub struct ModuleRef {
 ///
 /// # Example
 /// ```rust,no_run
-/// use kanongraph::types::{RuntimeRef, RuntimeSource};
-/// use kanongraph::Constraint;
+/// use monphare::types::{RuntimeRef, RuntimeSource};
+/// use monphare::Constraint;
 /// use std::path::PathBuf;
 ///
 /// let runtime = RuntimeRef {
@@ -288,7 +288,7 @@ impl Constraint {
     /// # Errors
     ///
     /// Returns an error if the constraint string is invalid.
-    pub fn parse(s: &str) -> Result<Self, crate::error::KanonGraphError> {
+    pub fn parse(s: &str) -> Result<Self, crate::error::MonPhareError> {
         let ranges = parse_constraint_string(s)?;
         Ok(Self {
             raw: s.to_string(),
@@ -449,7 +449,7 @@ impl VersionRange {
 }
 
 /// Parse a constraint string into version ranges.
-fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, crate::error::KanonGraphError> {
+fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, crate::error::MonPhareError> {
     let mut ranges = Vec::new();
 
     // Split on comma for multiple constraints
@@ -467,7 +467,7 @@ fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, crate::error::K
 }
 
 /// Parse a single constraint expression.
-fn parse_single_constraint(s: &str) -> Result<VersionRange, crate::error::KanonGraphError> {
+fn parse_single_constraint(s: &str) -> Result<VersionRange, crate::error::MonPhareError> {
     let s = s.trim();
 
     // Pessimistic constraint
@@ -516,7 +516,7 @@ fn parse_single_constraint(s: &str) -> Result<VersionRange, crate::error::KanonG
 }
 
 /// Parse a version string, handling incomplete versions.
-fn parse_version(s: &str) -> Result<semver::Version, crate::error::KanonGraphError> {
+fn parse_version(s: &str) -> Result<semver::Version, crate::error::MonPhareError> {
     // Handle versions like "1.0" by appending ".0"
     let normalized = match s.matches('.').count() {
         0 => format!("{s}.0.0"),
@@ -528,7 +528,7 @@ fn parse_version(s: &str) -> Result<semver::Version, crate::error::KanonGraphErr
     let normalized = normalized.strip_prefix('v').unwrap_or(&normalized);
 
     semver::Version::parse(normalized).map_err(|e| {
-        crate::error::KanonGraphError::VersionParse {
+        crate::error::MonPhareError::VersionParse {
             version: s.to_string(),
             source: e,
         }

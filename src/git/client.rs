@@ -4,7 +4,7 @@
 //! multiple Git providers.
 
 use crate::config::Config;
-use crate::error::{KanonGraphError, Result};
+use crate::error::{MonPhareError, Result};
 use crate::git::providers::{
     AzureDevOpsProvider, BitbucketProvider, GitHubProvider, GitLabProvider, GitProvider,
 };
@@ -34,7 +34,7 @@ impl GitClient {
         ];
 
         // Create temp directory for cloned repos
-        let temp_dir = std::env::temp_dir().join("kanongraph-repos");
+        let temp_dir = std::env::temp_dir().join("monphare-repos");
 
         Self {
             config,
@@ -87,7 +87,7 @@ impl GitClient {
             );
             tokio::fs::remove_dir_all(&target_path)
                 .await
-                .map_err(|e| KanonGraphError::io(&target_path, e))?;
+                .map_err(|e| MonPhareError::io(&target_path, e))?;
         }
 
         // Create parent directory
@@ -97,7 +97,7 @@ impl GitClient {
         );
         tokio::fs::create_dir_all(&self.temp_dir)
             .await
-            .map_err(|e| KanonGraphError::io(&self.temp_dir, e))?;
+            .map_err(|e| MonPhareError::io(&self.temp_dir, e))?;
 
         // Clone the repository
         let branch = self.config.git.branch.as_deref();
@@ -141,7 +141,7 @@ impl GitClient {
         }
 
         tracing::debug!(url = %url, "No provider found for URL");
-        Err(KanonGraphError::UnsupportedGitProvider {
+        Err(MonPhareError::UnsupportedGitProvider {
             url: url.to_string(),
         })
     }
@@ -186,7 +186,7 @@ impl GitClient {
             ProviderType::AzureDevOps => "ado",
             ProviderType::Unknown => {
                 tracing::debug!(url = %url, "Unknown platform, no token available");
-                return Err(KanonGraphError::UnsupportedGitProvider {
+                return Err(MonPhareError::UnsupportedGitProvider {
                     url: url.to_string(),
                 });
             }
@@ -218,7 +218,7 @@ impl GitClient {
         if self.temp_dir.exists() {
             tokio::fs::remove_dir_all(&self.temp_dir)
                 .await
-                .map_err(|e| KanonGraphError::io(&self.temp_dir, e))?;
+                .map_err(|e| MonPhareError::io(&self.temp_dir, e))?;
         }
         Ok(())
     }

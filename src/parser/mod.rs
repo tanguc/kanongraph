@@ -12,8 +12,8 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use kanongraph::parser::HclParser;
-//! use kanongraph::Config;
+//! use monphare::parser::HclParser;
+//! use monphare::Config;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {

@@ -19,8 +19,8 @@ use serde::Serialize;
 /// # Example
 ///
 /// ```rust,no_run
-/// use kanongraph::graph::{export_graph, DependencyGraph};
-/// use kanongraph::types::GraphFormat;
+/// use monphare::graph::{export_graph, DependencyGraph};
+/// use monphare::types::GraphFormat;
 ///
 /// let graph = DependencyGraph::new();
 /// let dot = export_graph(&graph, GraphFormat::Dot).unwrap();
@@ -41,7 +41,7 @@ pub fn export_graph(graph: &DependencyGraph, format: GraphFormat) -> Result<Stri
 /// Export to Graphviz DOT format.
 fn export_dot(graph: &DependencyGraph) -> Result<String> {
     let mut dot = String::new();
-    dot.push_str("digraph KanonGraph {\n");
+    dot.push_str("digraph MonPhare {\n");
     dot.push_str("    rankdir=TB;\n");
     dot.push_str("    node [shape=box, style=rounded];\n");
     dot.push_str("    \n");
@@ -217,7 +217,7 @@ fn export_json(graph: &DependencyGraph) -> Result<String> {
     };
 
     serde_json::to_string_pretty(&json_graph).map_err(|e| {
-        crate::error::KanonGraphError::ReportGeneration {
+        crate::error::MonPhareError::ReportGeneration {
             message: format!("Failed to serialize graph to JSON: {e}"),
         }
     })
@@ -227,7 +227,7 @@ fn export_json(graph: &DependencyGraph) -> Result<String> {
 fn export_mermaid(graph: &DependencyGraph) -> Result<String> {
     let mut mermaid = String::new();
     mermaid.push_str("graph TD\n");
-    mermaid.push_str("    %% KanonGraph Dependency Graph\n\n");
+    mermaid.push_str("    %% MonPhare Dependency Graph\n\n");
 
     // Add node definitions
     for node in graph.nodes() {
@@ -388,7 +388,7 @@ mod tests {
         let graph = create_test_graph();
         let dot = export_dot(&graph).unwrap();
 
-        assert!(dot.contains("digraph KanonGraph"));
+        assert!(dot.contains("digraph MonPhare"));
         assert!(dot.contains("vpc"));
         assert!(dot.contains("hashicorp/aws"));
     }

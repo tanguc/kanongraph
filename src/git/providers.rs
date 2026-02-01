@@ -2,7 +2,7 @@
 //!
 //! This module contains implementations for each supported Git provider.
 
-use crate::{error::{KanonGraphError, Result}};
+use crate::{error::{MonPhareError, Result}};
 use async_trait::async_trait;
 use std::path::PathBuf;
 
@@ -100,7 +100,7 @@ impl GitProvider for GitHubProvider {
             return Ok(format!("https://github.com/{path}.git"));
         }
 
-        Err(KanonGraphError::InvalidGitUrl {
+        Err(MonPhareError::InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse GitHub URL".to_string(),
         })
@@ -205,7 +205,7 @@ impl GitProvider for GitLabProvider {
             return Ok(url.to_string());
         }
 
-        Err(KanonGraphError::InvalidGitUrl {
+        Err(MonPhareError::InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse GitLab URL".to_string(),
         })
@@ -301,7 +301,7 @@ impl GitProvider for BitbucketProvider {
             return Ok(normalized);
         }
 
-        Err(KanonGraphError::InvalidGitUrl {
+        Err(MonPhareError::InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse Bitbucket URL".to_string(),
         })
@@ -400,7 +400,7 @@ impl GitProvider for AzureDevOpsProvider {
             }
         }
 
-        Err(KanonGraphError::InvalidGitUrl {
+        Err(MonPhareError::InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse Azure DevOps URL".to_string(),
         })
@@ -472,7 +472,7 @@ async fn clone_repository_impl(
         tracing::debug!(url = %url, path = %target_path.display(), "Cloning repository");
 
         builder.clone(&url, &target_path).map_err(|e| {
-            KanonGraphError::GitClone {
+            MonPhareError::GitClone {
                 url: url.clone(),
                 message: e.message().to_string(),
             }
@@ -481,7 +481,7 @@ async fn clone_repository_impl(
         Ok(())
     })
     .await
-    .map_err(|e| KanonGraphError::Internal {
+    .map_err(|e| MonPhareError::Internal {
         message: format!("Clone task failed: {e}"),
     })?
 }

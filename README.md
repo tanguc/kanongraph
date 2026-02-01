@@ -1,13 +1,13 @@
-# 🔍 KanonGraph
+# 🔍 MonPhare
 
 **Terraform/OpenTofu module constraint analyzer and dependency mapper.**
 
-[![CI](https://github.com/yourusername/kanongraph/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/kanongraph/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/kanongraph.svg)](https://crates.io/crates/kanongraph)
-[![Documentation](https://docs.rs/kanongraph/badge.svg)](https://docs.rs/kanongraph)
+[![CI](https://github.com/yourusername/monphare/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/monphare/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/monphare.svg)](https://crates.io/crates/monphare)
+[![Documentation](https://docs.rs/monphare/badge.svg)](https://docs.rs/monphare)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-KanonGraph scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
+MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
 
 ## ✨ Features
 
@@ -25,11 +25,11 @@ KanonGraph scans Terraform/OpenTofu repositories, parses HCL files, builds depen
 
 ```bash
 # From crates.io
-cargo install kanongraph
+cargo install monphare
 
 # From source
-git clone https://github.com/yourusername/kanongraph
-cd kanongraph
+git clone https://github.com/yourusername/monphare
+cd monphare
 cargo install --path .
 ```
 
@@ -37,30 +37,30 @@ cargo install --path .
 
 ```bash
 # Scan a local directory
-kanongraph scan ./terraform
+monphare scan ./terraform
 
 # Scan multiple directories
-kanongraph scan ./repo1 ./repo2 ./repo3
+monphare scan ./repo1 ./repo2 ./repo3
 
 # Scan remote repositories
-kanongraph scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
+monphare scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
 
 # Generate JSON report
-kanongraph scan ./terraform --format json --output report.json
+monphare scan ./terraform --format json --output report.json
 
 # Generate HTML report
-kanongraph scan ./terraform --format html --output report.html
+monphare scan ./terraform --format html --output report.html
 
 # Generate dependency graph
-kanongraph graph ./terraform --format dot --output deps.dot
+monphare graph ./terraform --format dot --output deps.dot
 ```
 
 ### Configuration
 
-Create a `kanongraph.yaml` file:
+Create a `monphare.yaml` file:
 
 ```yaml
-# kanongraph.yaml
+# monphare.yaml
 scan:
   exclude_patterns:
     - "**/test/**"
@@ -84,7 +84,7 @@ policies:
 Generate an example configuration:
 
 ```bash
-kanongraph init
+monphare init
 ```
 
 ## 📖 Documentation
@@ -101,7 +101,7 @@ kanongraph init
 ### Scan Options
 
 ```bash
-kanongraph scan [OPTIONS] [PATHS]...
+monphare scan [OPTIONS] [PATHS]...
 
 Options:
   -r, --repo <URL>          Git repository URLs to clone and scan
@@ -127,7 +127,7 @@ Options:
 ## 🏗️ Architecture
 
 ```
-kanongraph/
+monphare/
 ├── src/
 │   ├── lib.rs           # Library entry point
 │   ├── main.rs          # CLI entry point
@@ -230,7 +230,7 @@ A constraint has no upper bound, allowing breaking changes.
 
 ```
 ═══════════════════════════════════════════════════════════════
-  KanonGraph Analysis Report v0.1.0
+  MonPhare Analysis Report v0.1.0
 Generated: 2024-01-15 10:30:00
 ═══════════════════════════════════════════════════════════════
 
@@ -277,7 +277,7 @@ graph TD
 ## 🔧 Library Usage
 
 ```rust
-use kanongraph::{Scanner, Config, ReportFormat};
+use monphare::{Scanner, Config, ReportFormat};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

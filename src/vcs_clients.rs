@@ -3,8 +3,8 @@
 //! This module provides HTTP clients for different VCS platforms
 //! to discover repositories under organizations/groups.
 
-use crate::error::{KanonGraphError, Result, ResultExt};
-use crate::error::KanonGraphError::VcsApi;
+use crate::error::{MonPhareError, Result, ResultExt};
+use crate::error::MonPhareError::VcsApi;
 use crate::vcs::{VcsClient, VcsPlatform, VcsRepository};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -49,7 +49,7 @@ impl RateLimitedClient {
     pub fn new(config: RateLimitConfig) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent("kanongraph/1.0")
+            .user_agent("monphare/1.0")
             .build()
             .expect("Failed to create HTTP client");
 
@@ -79,7 +79,7 @@ impl RateLimitedClient {
                 request = request.header("Authorization", format!("token {}", t)); // GitHub
             }
 
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "unknown".to_string(), // Placeholder, will be updated by specific clients
                 message: format!("HTTP request failed for {}: {}", url, e),
             })?;
@@ -99,7 +99,7 @@ impl RateLimitedClient {
                 }
             }
 
-            return Err(KanonGraphError::VcsApi {
+            return Err(MonPhareError::VcsApi {
                 platform: "unknown".to_string(),
                 message: format!("HTTP request failed for {}: Status {}", url, status),
             });
@@ -170,19 +170,19 @@ impl VcsClient for GitHubClient {
             let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
             request = request.header("Authorization", format!("token {}", token));
 
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "github".to_string(),
                 message: format!("Failed to fetch GitHub repositories: {}", e),
             })?;
 
             if !response.status().is_success() {
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "github".to_string(),
                     message: format!("GitHub API error: Status {}", response.status()),
                 });
             }
 
-            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| KanonGraphError::VcsApi {
+            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "github".to_string(),
                 message: format!("Failed to parse GitHub repositories: {}", e),
             })?;
@@ -274,19 +274,19 @@ impl VcsClient for GitLabClient {
             let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
             request = request.header("PRIVATE-TOKEN", token);
 
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "gitlab".to_string(),
                 message: format!("Failed to fetch GitLab projects: {}", e),
             })?;
 
             if !response.status().is_success() {
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "gitlab".to_string(),
                     message: format!("GitLab API error: Status {}", response.status()),
                 });
             }
 
-            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| KanonGraphError::VcsApi {
+            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "gitlab".to_string(),
                 message: format!("Failed to parse GitLab projects: {}", e),
             })?;
@@ -365,7 +365,7 @@ impl AzureDevOpsClient {
                 request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", t))));
             }
 
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to fetch Azure DevOps projects for {}: {}", organization, e),
             })?;
@@ -376,14 +376,14 @@ impl AzureDevOpsClient {
                 .map(String::from);
 
             if !response.status().is_success() {
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Azure DevOps API error listing projects: Status {}", response.status()),
                 });
             }
             use azure_devops_rust_api::core::models::TeamProjectReferenceList;
 
-            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| KanonGraphError::VcsApi {
+            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to parse Azure DevOps projects: {}", e),
             })?;
@@ -427,7 +427,7 @@ impl AzureDevOpsClient {
             tracing::debug!("Request URL: {} and token content: {:?}", url, token);
             request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", token))));
 
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to fetch Azure DevOps repositories for {}/{}: {}", organization, project, e),
             })?;
@@ -439,14 +439,14 @@ impl AzureDevOpsClient {
 
             if !response.status().is_success() {
                 let status = response.status();
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Azure DevOps API error: Status {}", status),
                 });
             }
 
             // Get response text first for better error messages
-            let response_text = response.text().await.map_err(|e| KanonGraphError::VcsApi {
+            let response_text = response.text().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "ado".to_string(),
                 message: format!("[src/vcs_clients.rs:440] Failed to read Azure DevOps response: {}", e),
             })?;
@@ -459,7 +459,7 @@ impl AzureDevOpsClient {
                 } else {
                     response_text.clone()
                 };
-                KanonGraphError::VcsApi {
+                MonPhareError::VcsApi {
                     platform: "ado".to_string(),
                     message: format!(
                         "[src/vcs_clients.rs:448] Failed to parse Azure DevOps repositories JSON: {}\nResponse body:\n{}",
@@ -547,7 +547,7 @@ impl VcsClient for AzureDevOpsClient {
                 repos = self.list_project_repos(organization, project, token).await?;
             }
             _ => {
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Invalid Azure DevOps format: {}. Expected 'organization' or 'organization/project'", org),
                 });
@@ -611,19 +611,19 @@ impl VcsClient for BitbucketClient {
     
             // Bitbucket uses x-token-auth as username for app passwords
             request = request.basic_auth("x-token-auth", Some(token));
-            let response = request.send().await.map_err(|e| KanonGraphError::VcsApi {
+            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "bitbucket".to_string(),
                 message: format!("Failed to fetch Bitbucket repositories for {}: {}", org, e),
             })?;
 
             if !response.status().is_success() {
-                return Err(KanonGraphError::VcsApi {
+                return Err(MonPhareError::VcsApi {
                     platform: "bitbucket".to_string(),
                     message: format!("Bitbucket API error: Status {}", response.status()),
                 });
             }
 
-            let bitbucket_response: BitbucketRepositoriesResponse = response.json().await.map_err(|e| KanonGraphError::VcsApi {
+            let bitbucket_response: BitbucketRepositoriesResponse = response.json().await.map_err(|e| MonPhareError::VcsApi {
                 platform: "bitbucket".to_string(),
                 message: format!("Failed to parse Bitbucket repositories: {}", e),
             })?;
@@ -716,7 +716,7 @@ impl Default for RepoCache {
         Self {
             cache_dir: dirs::cache_dir()
                 .unwrap_or_else(|| PathBuf::from("./.cache"))
-                .join("kanongraph")
+                .join("monphare")
                 .join("repo_cache"),
             ttl: Duration::from_secs(24 * 60 * 60), // 24 hours
             enabled: true,

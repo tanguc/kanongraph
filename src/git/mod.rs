@@ -33,8 +33,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use kanongraph::git::GitClient;
-//! use kanongraph::Config;
+//! use monphare::git::GitClient;
+//! use monphare::Config;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {

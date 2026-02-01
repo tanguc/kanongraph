@@ -1,7 +1,7 @@
 //! JSON report generator.
 
 use crate::config::Config;
-use crate::error::{KanonGraphError, Result};
+use crate::error::{MonPhareError, Result};
 use crate::reporter::ReportGenerator;
 use crate::types::ScanResult;
 use serde::Serialize;
@@ -32,7 +32,7 @@ impl ReportGenerator for JsonReporter {
             serde_json::to_string(&report)
         };
 
-        json.map_err(|e| KanonGraphError::ReportGeneration {
+        json.map_err(|e| MonPhareError::ReportGeneration {
             message: format!("Failed to serialize JSON report: {e}"),
         })
     }
@@ -93,7 +93,7 @@ impl From<&ScanResult> for JsonReport {
 /// Report metadata.
 #[derive(Debug, Serialize)]
 pub struct ReportMetadata {
-    /// KanonGraph version
+    /// MonPhare version
     pub version: String,
     /// Report generation timestamp
     pub timestamp: String,
