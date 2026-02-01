@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::reporter::ReportGenerator;
 use crate::types::{ScanResult, Severity};
 use colored::Colorize;
-use comfy_table::{presets::UTF8_FULL, Cell, Color, ContentArrangement, Table};
+use comfy_table::{Cell, Color, ContentArrangement, Table};
 
 /// Text report generator for CLI output.
 pub struct TextReporter {
@@ -13,6 +13,9 @@ pub struct TextReporter {
     use_colors: bool,
     /// Whether to show verbose output
     verbose: bool,
+
+    /// strict mode
+    strict_mode: bool,
 }
 
 impl TextReporter {
@@ -22,6 +25,7 @@ impl TextReporter {
         Self {
             use_colors: config.output.colored,
             verbose: config.output.verbose,
+            strict_mode: config.scan.strict_mode,
         }
     }
 }
@@ -44,16 +48,22 @@ impl ReportGenerator for TextReporter {
             output.push('\n');
         }
 
-        // Module table (if verbose)
-        if self.verbose && !result.modules.is_empty() {
-            output.push_str(&self.format_modules(result));
-            output.push('\n');
+        // Module table (handles verbose logic internally)
+        if !result.modules.is_empty() {
+            let modules_output = self.format_modules(result);
+            if !modules_output.is_empty() {
+                output.push_str(&modules_output);
+                output.push('\n');
+            }
         }
 
-        // Provider table (if verbose)
-        if self.verbose && !result.providers.is_empty() {
-            output.push_str(&self.format_providers(result));
-            output.push('\n');
+        // Provider table (handles verbose logic internally)
+        if !result.providers.is_empty() {
+            let providers_output = self.format_providers(result);
+            if !providers_output.is_empty() {
+                output.push_str(&providers_output);
+                output.push('\n');
+            }
         }
 
         // Footer
@@ -66,26 +76,25 @@ impl ReportGenerator for TextReporter {
 impl TextReporter {
     /// Format the report header.
     fn format_header(&self) -> String {
-        let title = "MonPhare Analysis Report";
+        let title = "MonPhare Analysis";
         let version = format!("v{}", env!("CARGO_PKG_VERSION"));
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
 
         if self.use_colors {
             format!(
-                "\n{}\n{}\nGenerated: {}\n{}\n",
-                "═".repeat(60).bright_blue(),
-                format!("  {} {}", title, version).bright_white().bold(),
-                timestamp.to_string().dimmed(),
-                "═".repeat(60).bright_blue(),
+                "\n{} {} {}\n{}\n",
+                title.bright_white().bold(),
+                version.dimmed(),
+                format!("({})", timestamp).dimmed(),
+                "=".repeat(80).bright_blue(),
             )
         } else {
             format!(
-                "\n{}\n  {} {}\nGenerated: {}\n{}\n",
-                "=".repeat(60),
+                "\n{} {} ({})\n{}\n",
                 title,
                 version,
                 timestamp,
-                "=".repeat(60),
+                "=".repeat(80),
             )
         }
     }
@@ -95,30 +104,16 @@ impl TextReporter {
         let mut output = String::new();
 
         let section_title = if self.use_colors {
-            "📊 Summary".bright_cyan().bold().to_string()
+            "Summary".bright_cyan().bold().to_string()
         } else {
             "Summary".to_string()
         };
 
         output.push_str(&format!("\n{section_title}\n"));
-        output.push_str(&"-".repeat(40));
+        output.push_str(&"-".repeat(80));
         output.push('\n');
 
-        output.push_str(&format!(
-            "  Files scanned:    {}\n",
-            result.files_scanned.len()
-        ));
-        output.push_str(&format!("  Modules found:    {}\n", result.modules.len()));
-        output.push_str(&format!(
-            "  Providers found:  {}\n",
-            result.providers.len()
-        ));
-        output.push_str(&format!(
-            "  Total findings:   {}\n",
-            result.analysis.findings.len()
-        ));
-
-        // Findings by severity
+        // findings by severity
         let errors = result
             .analysis
             .findings
@@ -138,18 +133,35 @@ impl TextReporter {
             .filter(|f| f.severity == Severity::Info)
             .count();
 
+        // format the findings summary with colors
         if self.use_colors {
             output.push_str(&format!(
-                "    {} Errors, {} Warnings, {} Info\n",
-                errors.to_string().red(),
-                warnings.to_string().yellow(),
-                infos.to_string().blue()
+                "  {} {} | {} {} | {} {}\n",
+                errors.to_string().red().bold(),
+                if errors == 1 { "Error" } else { "Errors" },
+                warnings.to_string().yellow().bold(),
+                if warnings == 1 { "Warning" } else { "Warnings" },
+                infos.to_string().blue(),
+                if infos == 1 { "Info" } else { "Infos" }
             ));
         } else {
             output.push_str(&format!(
-                "    {errors} Errors, {warnings} Warnings, {infos} Info\n"
+                "  {} {} | {} {} | {} {}\n",
+                errors,
+                if errors == 1 { "Error" } else { "Errors" },
+                warnings,
+                if warnings == 1 { "Warning" } else { "Warnings" },
+                infos,
+                if infos == 1 { "Info" } else { "Infos" }
             ));
         }
+
+        output.push_str(&format!(
+            "  {} files | {} modules | {} providers\n",
+            result.files_scanned.len(),
+            result.modules.len(),
+            result.providers.len()
+        ));
 
         output
     }
@@ -159,16 +171,16 @@ impl TextReporter {
         let mut output = String::new();
 
         let section_title = if self.use_colors {
-            "🔍 Findings".bright_cyan().bold().to_string()
+            "Findings".bright_cyan().bold().to_string()
         } else {
             "Findings".to_string()
         };
 
         output.push_str(&format!("\n{section_title}\n"));
-        output.push_str(&"-".repeat(40));
+        output.push_str(&"-".repeat(80));
         output.push('\n');
 
-        // Sort findings by severity (critical first)
+        // sort findings by severity (critical first)
         let mut findings = result.analysis.findings.clone();
         findings.sort_by(|a, b| b.severity.cmp(&a.severity));
 
@@ -255,92 +267,161 @@ impl TextReporter {
     fn format_modules(&self, result: &ScanResult) -> String {
         let mut output = String::new();
 
+        // filter modules with issues (check if they appear in findings)
+        let modules_with_issues: Vec<_> = result.modules.iter()
+            .filter(|m| {
+                // check if any finding mentions this module by name (in quotes)
+                let pattern = format!("'{}'", m.name);
+                result.analysis.findings.iter().any(|f| f.message.contains(&pattern))
+            })
+            .collect();
+
+        let total_modules = result.modules.len();
+        let issues_count = modules_with_issues.len();
+        let passing_count = total_modules - issues_count;
+
+        // skip section if nothing to show
+        if !self.verbose && modules_with_issues.is_empty() {
+            return String::new();
+        }
+
         let section_title = if self.use_colors {
-            "📦 Modules".bright_cyan().bold().to_string()
+            "Modules".bright_cyan().bold().to_string()
         } else {
             "Modules".to_string()
         };
 
         output.push_str(&format!("\n{section_title}\n"));
+        output.push_str(&"-".repeat(80));
+        output.push('\n');
+
+        // show summary if not in verbose mode and there are passing modules
+        if !self.verbose && passing_count > 0 {
+            let summary = format!("{} issues, {} passing", issues_count, passing_count);
+            if self.use_colors {
+                output.push_str(&format!("  {} (use -vv to show all)\n\n", summary.dimmed()));
+            } else {
+                output.push_str(&format!("  {} (use -vv to show all)\n\n", summary));
+            }
+        }
 
         let mut table = Table::new();
         table
-            .load_preset(UTF8_FULL)
+            .load_preset(comfy_table::presets::UTF8_BORDERS_ONLY)
             .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Name", "Source", "Version", "Repository", "File"]);
+            .set_header(vec!["Source", "Version", "File"]);
 
-        for module in &result.modules {
-            let version = module
-                .version_constraint
-                .as_ref()
-                .map(|c| c.raw.clone())
-                .unwrap_or_else(|| {
-                    if self.use_colors {
-                        "(none)".dimmed().to_string()
-                    } else {
-                        "(none)".to_string()
-                    }
-                });
-
-            let version_cell = if module.version_constraint.is_none() && self.use_colors {
-                Cell::new(&version).fg(Color::Yellow)
-            } else {
-                Cell::new(&version)
-            };
-
-            table.add_row(vec![
-                Cell::new(&module.name),
-                Cell::new(truncate(&module.source.canonical_id(), 40)),
-                version_cell,
-                Cell::new(module.repository.as_deref().unwrap_or("-")),
-                Cell::new(truncate(&module.file_path.to_string_lossy(), 30)),
-            ]);
+        // iterate based on verbose mode
+        if self.verbose {
+            for module in &result.modules {
+                self.add_module_row(&mut table, module);
+            }
+        } else {
+            for module in modules_with_issues {
+                self.add_module_row(&mut table, module);
+            }
         }
 
         output.push_str(&table.to_string());
         output.push('\n');
 
         output
+    }
+
+    /// Add a module row to the table
+    fn add_module_row(&self, table: &mut Table, module: &crate::types::ModuleRef) {
+        let version = module
+            .version_constraint
+            .as_ref()
+            .map(|c| c.raw.clone())
+            .unwrap_or_else(|| "MISSING".to_string());
+
+        // color the version based on status
+        let version_cell = if module.version_constraint.is_none() {
+            if self.use_colors {
+                Cell::new(&version).fg(Color::Red)
+            } else {
+                Cell::new(&version)
+            }
+        } else if self.use_colors {
+            Cell::new(&version).fg(Color::Green)
+        } else {
+            Cell::new(&version)
+        };
+
+        // format source with module name
+        let source_display = format!("{} ({})",
+            truncate(&module.source.canonical_id(), 45),
+            &module.name
+        );
+
+        // show last 2 directories + filename for context
+        let file_display = get_contextual_path(&module.file_path, 3);
+
+        table.add_row(vec![
+            Cell::new(&source_display),
+            version_cell,
+            Cell::new(&file_display),
+        ]);
     }
 
     /// Format the providers table.
     fn format_providers(&self, result: &ScanResult) -> String {
         let mut output = String::new();
 
+        // filter providers with issues (check if they appear in findings)
+        let providers_with_issues: Vec<_> = result.providers.iter()
+            .filter(|p| {
+                // check if any finding mentions this provider by name (in quotes)
+                let pattern = format!("'{}'", p.name);
+                result.analysis.findings.iter().any(|f| f.message.contains(&pattern))
+            })
+            .collect();
+
+        let total_providers = result.providers.len();
+        let issues_count = providers_with_issues.len();
+        let passing_count = total_providers - issues_count;
+
+        // skip section if nothing to show
+        if !self.verbose && providers_with_issues.is_empty() {
+            return String::new();
+        }
+
         let section_title = if self.use_colors {
-            "🔌 Providers".bright_cyan().bold().to_string()
+            "Providers".bright_cyan().bold().to_string()
         } else {
             "Providers".to_string()
         };
 
         output.push_str(&format!("\n{section_title}\n"));
+        output.push_str(&"-".repeat(80));
+        output.push('\n');
+
+        // show summary if not in verbose mode and there are passing providers
+        if !self.verbose && passing_count > 0 {
+            let summary = format!("{} issues, {} passing", issues_count, passing_count);
+            if self.use_colors {
+                output.push_str(&format!("  {} (use -vv to show all)\n\n", summary.dimmed()));
+            } else {
+                output.push_str(&format!("  {} (use -vv to show all)\n\n", summary));
+            }
+        }
 
         let mut table = Table::new();
         table
-            .load_preset(UTF8_FULL)
+            .load_preset(comfy_table::presets::UTF8_BORDERS_ONLY)
             .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Name", "Source", "Version", "Repository", "File"]);
+            .set_header(vec!["Provider", "Version", "File"]);
 
-        for provider in &result.providers {
-            let version = provider
-                .version_constraint
-                .as_ref()
-                .map(|c| c.raw.clone())
-                .unwrap_or_else(|| "(none)".to_string());
-
-            let version_cell = if provider.version_constraint.is_none() && self.use_colors {
-                Cell::new(&version).fg(Color::Yellow)
-            } else {
-                Cell::new(&version)
-            };
-
-            table.add_row(vec![
-                Cell::new(&provider.name),
-                Cell::new(&provider.qualified_source()),
-                version_cell,
-                Cell::new(provider.repository.as_deref().unwrap_or("-")),
-                Cell::new(truncate(&provider.file_path.to_string_lossy(), 30)),
-            ]);
+        // iterate based on verbose mode
+        if self.verbose {
+            for provider in &result.providers {
+                self.add_provider_row(&mut table, provider);
+            }
+        } else {
+            for provider in providers_with_issues {
+                self.add_provider_row(&mut table, provider);
+            }
         }
 
         output.push_str(&table.to_string());
@@ -349,26 +430,60 @@ impl TextReporter {
         output
     }
 
+    /// Add a provider row to the table
+    fn add_provider_row(&self, table: &mut Table, provider: &crate::types::ProviderRef) {
+        let version = provider
+            .version_constraint
+            .as_ref()
+            .map(|c| c.raw.clone())
+            .unwrap_or_else(|| "MISSING".to_string());
+
+        // color the version based on status
+        let version_cell = if provider.version_constraint.is_none() {
+            if self.use_colors {
+                Cell::new(&version).fg(Color::Red)
+            } else {
+                Cell::new(&version)
+            }
+        } else if self.use_colors {
+            Cell::new(&version).fg(Color::Green)
+        } else {
+            Cell::new(&version)
+        };
+
+        // show last 2 directories + filename for context
+        let file_display = get_contextual_path(&provider.file_path, 3);
+
+        table.add_row(vec![
+            Cell::new(&provider.qualified_source()),
+            version_cell,
+            Cell::new(&file_display),
+        ]);
+    }
+
     /// Format the report footer.
     fn format_footer(&self, result: &ScanResult) -> String {
+        tracing::debug!("strict_mode: {}", self.strict_mode);
         let status = if result.analysis.has_errors() {
             if self.use_colors {
                 "❌ FAILED - Errors found".red().bold().to_string()
             } else {
                 "FAILED - Errors found".to_string()
             }
-        } else if result.analysis.has_warnings() {
+        } else if result.analysis.has_warnings() && self.strict_mode {
+            if self.use_colors {
+                "❌ FAILED - Warnings found".red().bold().to_string()
+            } else {
+                "FAILED - Warnings found".to_string()
+            }
+        } else if result.analysis.has_warnings() && !self.strict_mode {
             if self.use_colors {
                 "⚠️  PASSED with warnings".yellow().to_string()
             } else {
                 "PASSED with warnings".to_string()
             }
         } else {
-            if self.use_colors {
-                "✅ PASSED - No issues found".green().bold().to_string()
-            } else {
-                "PASSED - No issues found".to_string()
-            }
+            "PASSED - No issues found".to_string()
         };
 
         format!("\n{}\n\n", status)
@@ -382,6 +497,23 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len - 3])
     }
+}
+
+/// Get last N directories + filename from a path for better context.
+/// Example: /Users/foo/projects/terraform/env/prod/main.tf -> env/prod/main.tf
+fn get_contextual_path(path: &std::path::Path, depth: usize) -> String {
+    let components: Vec<_> = path.components().collect();
+    let start_idx = if components.len() > depth {
+        components.len() - depth
+    } else {
+        0
+    };
+
+    components[start_idx..]
+        .iter()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 #[cfg(test)]

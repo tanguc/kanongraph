@@ -5,7 +5,7 @@
 use clap::Parser;
 use monphare::cli::{Cli, Commands};
 use monphare::{Config, Scanner, VcsPlatform};
-use std::error::Error;
+use tracing_error::ErrorLayer;
 use std::process::ExitCode;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -21,22 +21,8 @@ async fn main() -> ExitCode {
     match run(cli).await {
         Ok(exit_code) => exit_code,
         Err(e) => {
-            tracing::error!(error = %e, "Fatal error");
-
-            // Print error with full chain
-            eprintln!("Error: {e}");
-
-            // Print error chain (cause chain)
-            let mut source = e.source();
-            if source.is_some() {
-                eprintln!("\nCaused by:");
-                let mut i = 0;
-                while let Some(cause) = source {
-                    eprintln!("  {i}: {cause}");
-                    source = cause.source();
-                    i += 1;
-                }
-            }
+            // print clean error message
+            eprintln!("Error: {}", e);
 
             // Print backtrace if RUST_BACKTRACE is set
             let backtrace = e.backtrace();
@@ -96,14 +82,23 @@ fn init_logging(verbose: u8, quiet: bool) {
     tracing_subscriber::registry()
         .with(fmt::layer().with_target(true).with_thread_ids(false))
         .with(filter)
+        .with(ErrorLayer::default())
         .init();
 }
 
 async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
     // Load configuration
     tracing::debug!("Loading configuration");
-    let config = load_config(&cli)?;
+    let mut config = load_config(&cli)?;
     tracing::debug!("Configuration loaded successfully");
+
+    // merge CLI arguments into config
+    config.merge_cli_args(&cli);
+    tracing::debug!(
+        strict_mode = config.scan.strict_mode,
+        verbose = config.output.verbose,
+        "CLI arguments merged into configuration"
+    );
 
     match cli.command {
         Commands::Scan(args) => {
@@ -132,10 +127,8 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             } else if !args.repositories.is_empty() {
                 let urls: Vec<&str> = args.repositories.iter().map(String::as_str).collect();
                 scanner.scan_repositories(&urls).await?
-            } else {
-                let paths: Vec<&std::path::Path> =
-                    args.paths.iter().map(std::path::PathBuf::as_path).collect();
-                scanner.scan_paths(&paths).await?
+            } else { // Single directory scanning
+                scanner.scan_paths(args.paths).await?
             };
 
             // Generate report
@@ -166,7 +159,7 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             let scanner = Scanner::new(config);
             let paths: Vec<&std::path::Path> =
                 args.paths.iter().map(std::path::PathBuf::as_path).collect();
-            let result = scanner.scan_paths(&paths).await?;
+            let result = scanner.scan_paths(args.paths).await?;
 
             // Output graph in requested format
             let graph_output = monphare::graph::export_graph(&result.graph, args.format)?;

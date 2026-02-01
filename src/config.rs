@@ -62,6 +62,10 @@ pub struct ScanOptions {
     /// Maximum depth for recursive directory scanning.
     #[serde(default = "default_max_depth")]
     pub max_depth: usize,
+
+    /// Strict mode.
+    #[serde(default = "default_true")]
+    pub strict_mode: bool,
 }
 
 /// Analysis options.
@@ -155,9 +159,9 @@ impl GitOptions {
             "ado" | "azure" | "azure-devops" => self.azure_devops_token.as_deref(),
             "bitbucket" => self.bitbucket_token.as_deref(),
             _ => {
-                return Err(MonPhareError::ConfigMissing {
-                    key: format!("Unsupported platform: {}", platform)
-                });
+                return Err(crate::err!(ConfigMissing {
+                    key: format!("Unsupported platform: {}", platform),
+                }));
             }
         };
 
@@ -188,10 +192,10 @@ impl GitOptions {
             })
             .ok_or_else(|| {
                 tracing::error!(platform = %platform, env_var = %env_var_name, "No token found for platform");
-                MonPhareError::ConfigMissing {
+                crate::err!(ConfigMissing {
                     key: format!("{} token - please set {} environment variable or configure in monphare.yaml",
-                        platform, env_var_name)
-                }
+                        platform, env_var_name),
+                })
             })
     }
     
@@ -343,6 +347,7 @@ impl Default for Config {
                 ],
                 continue_on_error: false,
                 max_depth: default_max_depth(),
+                strict_mode: false,
             },
             analysis: AnalysisOptions {
                 check_exact_versions: true,
@@ -392,10 +397,10 @@ impl Config {
         let expanded = expand_env_vars(content);
         tracing::debug!("Expanded environment variables in configuration");
 
-        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| MonPhareError::ConfigParse {
+        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| crate::err!(ConfigParse {
             message: e.to_string(),
             source: None,
-        })?;
+        }))?;
         
         tracing::debug!(
             exclude_patterns = config.scan.exclude_patterns.len(),
@@ -538,23 +543,54 @@ deprecations:
     }
 
     /// Merge CLI arguments into the configuration.
-    pub fn merge_cli_args(&mut self, args: &crate::cli::ScanArgs) {
-        if !args.exclude_patterns.is_empty() {
-            self.scan
-                .exclude_patterns
-                .extend(args.exclude_patterns.iter().cloned());
+    /// Takes the full Cli struct and merges both global and command-specific arguments.
+    pub fn merge_cli_args(&mut self, cli: &crate::cli::Cli) {
+        // merge global flags
+        if cli.verbose > 0 {
+            self.output.verbose = true;
         }
-        if args.continue_on_error {
-            self.scan.continue_on_error = true;
+        if cli.quiet {
+            self.output.colored = false;
+            self.output.verbose = false;
         }
-        if args.max_depth != 100 {
-            self.scan.max_depth = args.max_depth;
-        }
-        if let Some(_token) = &args.git_token.as_ref() {
-            // Note: Legacy token field no longer exists, use platform-specific tokens instead
-        }
-        if let Some(ref branch) = args.branch {
-            self.git.branch = Some(branch.clone());
+
+        // merge command-specific args if it's a Scan command
+        if let crate::cli::Commands::Scan(ref args) = cli.command {
+            // scan options
+            if !args.exclude_patterns.is_empty() {
+                self.scan
+                    .exclude_patterns
+                    .extend(args.exclude_patterns.iter().cloned());
+            }
+            if args.continue_on_error {
+                self.scan.continue_on_error = true;
+            }
+            if args.max_depth != 100 {
+                self.scan.max_depth = args.max_depth;
+            }
+            if args.strict {
+                self.scan.strict_mode = true;
+            }
+
+            // git options
+            if let Some(ref branch) = args.branch {
+                self.git.branch = Some(branch.clone());
+            }
+            if let Some(ref token) = args.git_token {
+                // set as fallback for all platforms if specific tokens aren't set
+                if self.git.github_token.is_none() {
+                    self.git.github_token = Some(token.clone());
+                }
+                if self.git.gitlab_token.is_none() {
+                    self.git.gitlab_token = Some(token.clone());
+                }
+                if self.git.azure_devops_token.is_none() {
+                    self.git.azure_devops_token = Some(token.clone());
+                }
+                if self.git.bitbucket_token.is_none() {
+                    self.git.bitbucket_token = Some(token.clone());
+                }
+            }
         }
     }
     

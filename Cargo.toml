@@ -99,6 +99,7 @@ async-trait = "0.1"
 # Futures utilities
 futures = "0.3"
 azure_devops_rust_api = { version = "0.26.1", features = ["core", "git"] }
+tracing-error = "0.2.1"
 
 [dev-dependencies]
 # Testing utilities

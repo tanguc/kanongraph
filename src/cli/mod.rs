@@ -123,7 +123,7 @@ pub struct ScanArgs {
     pub output: Option<PathBuf>,
 
     /// Treat warnings as errors (exit code 1)
-    #[arg(long)]
+    #[arg(long, action = clap::ArgAction::SetTrue)]
     pub strict: bool,
 
     /// Continue scanning even if some files fail to parse
@@ -137,10 +137,6 @@ pub struct ScanArgs {
     /// Patterns to exclude from scanning (glob patterns)
     #[arg(short, long = "exclude", value_name = "PATTERN")]
     pub exclude_patterns: Vec<String>,
-
-    /// Only show errors and warnings (no info-level findings)
-    #[arg(long)]
-    pub errors_only: bool,
 
     /// Git branch to checkout after cloning (default: default branch)
     #[arg(long, value_name = "BRANCH")]

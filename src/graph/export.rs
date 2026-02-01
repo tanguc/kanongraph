@@ -217,9 +217,9 @@ fn export_json(graph: &DependencyGraph) -> Result<String> {
     };
 
     serde_json::to_string_pretty(&json_graph).map_err(|e| {
-        crate::error::MonPhareError::ReportGeneration {
+        crate::err!(ReportGeneration {
             message: format!("Failed to serialize graph to JSON: {e}"),
-        }
+        })
     })
 }
 

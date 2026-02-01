@@ -113,24 +113,19 @@ impl Scanner {
         Self { config, git_client }
     }
 
-    /// Scan a single local path for Terraform/OpenTofu files.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The path doesn't exist or isn't accessible
-    /// - HCL parsing fails
-    /// - Graph construction fails
-    pub async fn scan_path<P: AsRef<Path>>(&self, path: P) -> Result<ScanResult> {
-        self.scan_paths(&[path.as_ref()]).await
-    }
-
     /// Scan multiple local paths for Terraform/OpenTofu files.
     ///
     /// # Errors
     ///
     /// Returns an error if any path fails to scan.
-    pub async fn scan_paths<P: AsRef<Path>>(&self, paths: &[P]) -> Result<ScanResult> {
+    pub async fn scan_paths(&self, mut paths: Vec<std::path::PathBuf>) -> Result<ScanResult> {
+        tracing::info!(paths = %paths.len(), "Scanning paths");
+
+        if paths.is_empty() {
+            let curr_path = std::env::current_dir()?;
+            paths = vec![curr_path];
+        }
+        
         let parser = parser::HclParser::new(&self.config);
         let mut all_modules = Vec::new();
         let mut all_providers = Vec::new();
@@ -138,10 +133,10 @@ impl Scanner {
         let mut all_files = Vec::new();
 
         for path in paths {
-            let path = path.as_ref();
-            tracing::info!(path = %path.display(), "Scanning path");
+            let path = path;
+            tracing::debug!(path = %path.display(), "Scanning path");
 
-            let parsed = parser.parse_directory(path).await?;
+            let parsed = parser.parse_directory(&path).await?;
             all_runtimes.extend(parsed.runtimes);
             all_modules.extend(parsed.modules);
             all_providers.extend(parsed.providers);
@@ -155,6 +150,13 @@ impl Scanner {
         // Run analysis
         let analyzer = analyzer::Analyzer::new(&self.config);
         let analysis = analyzer.analyze(&dependency_graph, &all_modules, &all_providers, &all_runtimes)?;
+
+        tracing::info!(
+            modules = all_modules.len(),
+            providers = all_providers.len(),
+            runtimes = all_runtimes.len(),
+            "Analysis completed"
+        );
 
         Ok(ScanResult {
             modules: all_modules,
@@ -179,7 +181,7 @@ impl Scanner {
     pub async fn scan_repository(&self, url: &str) -> Result<ScanResult> {
         tracing::info!(url = %url, "Cloning repository");
         let local_path = self.git_client.clone_repository(url).await?;
-        self.scan_path(&local_path).await
+        self.scan_paths(vec![local_path]).await
     }
 
     /// Scan multiple repositories in parallel.
@@ -252,10 +254,10 @@ impl Scanner {
                 bb_client.discover_repositories(org_spec, &token).await?
             }
             VcsPlatform::Local => {
-                return Err(crate::error::MonPhareError::ConfigParse {
+                return Err(crate::err!(ConfigParse {
                     message: "Cannot use Local platform for organization scanning".to_string(),
                     source: None,
-                });
+                }));
             }
         };
 

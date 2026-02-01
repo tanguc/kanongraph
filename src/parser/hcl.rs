@@ -40,9 +40,9 @@ impl HclParser {
     /// for any file (unless `continue_on_error` is enabled in config).
     pub async fn parse_directory(&self, path: &Path) -> Result<ParsedHcl> {
         if !path.exists() {
-            return Err(MonPhareError::DirectoryNotFound {
+            return Err(crate::err!(DirectoryNotFound {
                 path: path.to_path_buf(),
-            });
+            }));
         }
 
         let mut result = ParsedHcl::default();
@@ -91,8 +91,8 @@ impl HclParser {
                     if self.config.scan.continue_on_error && e.is_recoverable() {
                         tracing::warn!(
                             file = %file_path.display(),
-                            error = %e,
-                            "Failed to parse file, continuing"
+                            "failed to parse file, continuing: {}",
+                            e
                         );
                         error_collector.add(e);
                     } else {
@@ -122,7 +122,7 @@ impl HclParser {
     pub async fn parse_file(&self, path: &Path, repository: Option<&str>) -> Result<ParsedHcl> {
         let content = tokio::fs::read_to_string(path)
             .await
-            .map_err(|e| MonPhareError::io(path, e))?;
+            .map_err(|e| MonPhareError::io(path, e, file!(), line!()))?;
 
         self.parse_content(&content, path, repository)
     }
@@ -174,12 +174,12 @@ impl Parser for HclParser {
         repository: Option<&str>,
     ) -> Result<ParsedHcl> {
         // Parse HCL content
-        let body: Body = hcl::from_str(content).map_err(|e| MonPhareError::HclParse {
+        let body: Body = hcl::from_str(content).map_err(|e| crate::err!(HclParse {
             file: file_path.to_path_buf(),
             message: e.to_string(),
             line: None,
             column: None,
-        })?;
+        }))?;
 
         let mut result = ParsedHcl {
             modules: Vec::new(),
@@ -197,14 +197,36 @@ impl Parser for HclParser {
                             parse_module_block(&block, file_path, repository)?
                         {
                             result.modules.push(module_ref);
+                        } else {
+                            tracing::warn!("Failed to parse module block: {}", block.identifier);
+                            if !self.config.scan.continue_on_error {
+                                return Err(crate::err!(HclParse {
+                                    file: file_path.to_path_buf(),
+                                    message: format!("Failed to parse module block: {}", block.identifier),
+                                    line: None,
+                                    column: None,
+                                }));
+                            }
                         }
                     }
                     "terraform" => {
-                        let (runtimes, providers ) =
-                            parse_terraform_block(&block, file_path, repository)?;
-                        
-                        result.providers.extend(providers);
-                        result.runtimes.extend(runtimes);
+                        match parse_terraform_block(&block, file_path, repository) {
+                            Ok((runtimes, providers)) => {
+                                result.providers.extend(providers);
+                                result.runtimes.extend(runtimes);
+                            }
+                            Err(e) => {
+                                tracing::warn!("Failed to parse terraform block: {}", e);
+                                if !self.config.scan.continue_on_error {
+                                    return Err(crate::err!(HclParse {
+                                        file: file_path.to_path_buf(),
+                                        message: format!("Failed to parse terraform block: {}", e),
+                                        line: None,
+                                        column: None,
+                                    }));
+                                }
+                            }
+                        }
                     }
                     _ => {
                         // Ignore other block types (resource, data, variable, etc.)
@@ -246,10 +268,23 @@ fn parse_module_block(
     // Parse the source
     let source = super::parse_module_source(&source_str)?;
 
-    // Extract version constraint
-    let version_constraint = get_string_attribute(&block.body, "version")
-        .map(|v| Constraint::parse(&v))
-        .transpose()?;
+
+
+    // extract version constraint
+    let version_constraint = match get_string_attribute(&block.body, "version") {
+        None => None,
+        Some(version_str) => {
+            let constraint = Constraint::parse(&version_str).map_err(|e| {
+                crate::err!(HclParse {
+                    file: file_path.to_path_buf(),
+                    message: format!("failed to parse version constraint: {}", e),
+                    line: None,
+                    column: None,
+                })
+            })?;
+            Some(constraint)
+        }
+    };
 
     // Collect other attributes for reference
     let mut attributes = std::collections::HashMap::new();
@@ -286,12 +321,20 @@ fn parse_terraform_block(
     for structure in block.body.clone().into_inner() {
         if let hcl::Structure::Block(nested_block) = &structure {
             if nested_block.identifier.as_str() == "required_providers" {
-                // Parse each provider in required_providers
+                // parse each provider in required_providers
                 for attr in nested_block.body.attributes() {
                     let provider_name = attr.key.as_str().to_string();
 
-                    // The value can be a string (version only) or an object (source + version)
-                    let (source, version_constraint) = parse_provider_requirement(&attr.expr)?;
+                    // the value can be a string (version only) or an object (source + version)
+                    let (source, version_constraint) = parse_provider_requirement(&attr.expr)
+                        .map_err(|e| {
+                            crate::err!(HclParse {
+                                file: file_path.to_path_buf(),
+                                message: format!("failed to parse provider '{}': {}", provider_name, e),
+                                line: None,
+                                column: None,
+                            })
+                        })?;
 
                     providers.push(ProviderRef {
                         name: provider_name,
@@ -324,18 +367,25 @@ fn parse_terraform_block(
 
 fn parse_required_version(expr: &Expression, file_path: &Path) -> Result<Constraint> {
     if let Expression::String(version) = expr {
-        return Ok(Constraint::parse(version)?);
+        return Constraint::parse(version).map_err(|e| {
+            crate::err!(HclParse {
+                file: file_path.to_path_buf(),
+                message: format!("failed to parse required_version: {}", e),
+                line: None,
+                column: None,
+            })
+        });
     } else {
         tracing::warn!(
             file = %file_path.display(),
-            "Required version is not a string expression, but got {expr:?}"
+            "required version is not a string expression, but got {expr:?}"
         );
-        return Err(MonPhareError::HclParse {
+        return Err(crate::err!(HclParse {
             file: file_path.to_path_buf(),
-            message: format!("Required version is not a string expression, but got {expr:?}"),
+            message: format!("required version is not a string expression, but got {expr:?}"),
             line: None,
             column: None,
-        });
+        }));
     }
 }
 

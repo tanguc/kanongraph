@@ -87,7 +87,7 @@ impl GitClient {
             );
             tokio::fs::remove_dir_all(&target_path)
                 .await
-                .map_err(|e| MonPhareError::io(&target_path, e))?;
+                .map_err(|e| MonPhareError::io(&target_path, e, file!(), line!()))?;
         }
 
         // Create parent directory
@@ -97,7 +97,7 @@ impl GitClient {
         );
         tokio::fs::create_dir_all(&self.temp_dir)
             .await
-            .map_err(|e| MonPhareError::io(&self.temp_dir, e))?;
+            .map_err(|e| MonPhareError::io(&self.temp_dir, e, file!(), line!()))?;
 
         // Clone the repository
         let branch = self.config.git.branch.as_deref();
@@ -141,9 +141,9 @@ impl GitClient {
         }
 
         tracing::debug!(url = %url, "No provider found for URL");
-        Err(MonPhareError::UnsupportedGitProvider {
+        Err(crate::err!(UnsupportedGitProvider {
             url: url.to_string(),
-        })
+        }))
     }
 
     /// Extract a repository name from a URL for use as a directory name.
@@ -186,9 +186,9 @@ impl GitClient {
             ProviderType::AzureDevOps => "ado",
             ProviderType::Unknown => {
                 tracing::debug!(url = %url, "Unknown platform, no token available");
-                return Err(MonPhareError::UnsupportedGitProvider {
+                return Err(crate::err!(UnsupportedGitProvider {
                     url: url.to_string(),
-                });
+                }));
             }
         };
 
@@ -218,7 +218,7 @@ impl GitClient {
         if self.temp_dir.exists() {
             tokio::fs::remove_dir_all(&self.temp_dir)
                 .await
-                .map_err(|e| MonPhareError::io(&self.temp_dir, e))?;
+                .map_err(|e| MonPhareError::io(&self.temp_dir, e, file!(), line!()))?;
         }
         Ok(())
     }

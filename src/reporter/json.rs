@@ -32,9 +32,9 @@ impl ReportGenerator for JsonReporter {
             serde_json::to_string(&report)
         };
 
-        json.map_err(|e| MonPhareError::ReportGeneration {
+        json.map_err(|e| crate::err!(ReportGeneration {
             message: format!("Failed to serialize JSON report: {e}"),
-        })
+        }))
     }
 }
 

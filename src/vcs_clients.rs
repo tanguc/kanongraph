@@ -79,10 +79,10 @@ impl RateLimitedClient {
                 request = request.header("Authorization", format!("token {}", t)); // GitHub
             }
 
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "unknown".to_string(), // Placeholder, will be updated by specific clients
                 message: format!("HTTP request failed for {}: {}", url, e),
-            })?;
+            }))?;
 
             if response.status().is_success() {
                 return Ok(response);
@@ -99,10 +99,10 @@ impl RateLimitedClient {
                 }
             }
 
-            return Err(MonPhareError::VcsApi {
+            return Err(crate::err!(VcsApi {
                 platform: "unknown".to_string(),
                 message: format!("HTTP request failed for {}: Status {}", url, status),
-            });
+            }));
         }
     }
 }
@@ -170,22 +170,22 @@ impl VcsClient for GitHubClient {
             let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
             request = request.header("Authorization", format!("token {}", token));
 
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "github".to_string(),
                 message: format!("Failed to fetch GitHub repositories: {}", e),
-            })?;
+            }))?;
 
             if !response.status().is_success() {
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "github".to_string(),
                     message: format!("GitHub API error: Status {}", response.status()),
-                });
+                }));
             }
 
-            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| MonPhareError::VcsApi {
+            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| crate::err!(VcsApi {
                 platform: "github".to_string(),
                 message: format!("Failed to parse GitHub repositories: {}", e),
-            })?;
+            }))?;
 
             let page_len = page_repos.len();
             if page_repos.is_empty() {
@@ -274,22 +274,22 @@ impl VcsClient for GitLabClient {
             let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
             request = request.header("PRIVATE-TOKEN", token);
 
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "gitlab".to_string(),
                 message: format!("Failed to fetch GitLab projects: {}", e),
-            })?;
+            }))?;
 
             if !response.status().is_success() {
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "gitlab".to_string(),
                     message: format!("GitLab API error: Status {}", response.status()),
-                });
+                }));
             }
 
-            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| MonPhareError::VcsApi {
+            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| crate::err!(VcsApi {
                 platform: "gitlab".to_string(),
                 message: format!("Failed to parse GitLab projects: {}", e),
-            })?;
+            }))?;
 
             let page_len = page_repos.len();
             if page_repos.is_empty() {
@@ -365,10 +365,10 @@ impl AzureDevOpsClient {
                 request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", t))));
             }
 
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to fetch Azure DevOps projects for {}: {}", organization, e),
-            })?;
+            }))?;
 
             let next_continuation = response.headers()
                 .get("x-ms-continuationtoken")
@@ -376,17 +376,17 @@ impl AzureDevOpsClient {
                 .map(String::from);
 
             if !response.status().is_success() {
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Azure DevOps API error listing projects: Status {}", response.status()),
-                });
+                }));
             }
             use azure_devops_rust_api::core::models::TeamProjectReferenceList;
 
-            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| MonPhareError::VcsApi {
+            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| crate::err!(VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to parse Azure DevOps projects: {}", e),
-            })?;
+            }))?;
 
             if ado_response.value.is_empty() {
                 break;
@@ -427,10 +427,10 @@ impl AzureDevOpsClient {
             tracing::debug!("Request URL: {} and token content: {:?}", url, token);
             request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", token))));
 
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "ado".to_string(),
                 message: format!("Failed to fetch Azure DevOps repositories for {}/{}: {}", organization, project, e),
-            })?;
+            }))?;
 
             let next_continuation = response.headers()
                 .get("x-ms-continuationtoken")
@@ -439,17 +439,17 @@ impl AzureDevOpsClient {
 
             if !response.status().is_success() {
                 let status = response.status();
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Azure DevOps API error: Status {}", status),
-                });
+                }));
             }
 
             // Get response text first for better error messages
-            let response_text = response.text().await.map_err(|e| MonPhareError::VcsApi {
+            let response_text = response.text().await.map_err(|e| crate::err!(VcsApi {
                 platform: "ado".to_string(),
                 message: format!("[src/vcs_clients.rs:440] Failed to read Azure DevOps response: {}", e),
-            })?;
+            }))?;
 
             use azure_devops_rust_api::git::models::GitRepositoryList;
 
@@ -459,13 +459,13 @@ impl AzureDevOpsClient {
                 } else {
                     response_text.clone()
                 };
-                MonPhareError::VcsApi {
+                crate::err!(VcsApi {
                     platform: "ado".to_string(),
                     message: format!(
                         "[src/vcs_clients.rs:448] Failed to parse Azure DevOps repositories JSON: {}\nResponse body:\n{}",
                         e, preview
                     ),
-                }
+                })
             })?;
 
             tracing::debug!("Azure DevOps project repositories response: {:?}", ado_response);
@@ -547,10 +547,10 @@ impl VcsClient for AzureDevOpsClient {
                 repos = self.list_project_repos(organization, project, token).await?;
             }
             _ => {
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "ado".to_string(),
                     message: format!("Invalid Azure DevOps format: {}. Expected 'organization' or 'organization/project'", org),
-                });
+                }));
             }
         }
 
@@ -611,22 +611,22 @@ impl VcsClient for BitbucketClient {
     
             // Bitbucket uses x-token-auth as username for app passwords
             request = request.basic_auth("x-token-auth", Some(token));
-            let response = request.send().await.map_err(|e| MonPhareError::VcsApi {
+            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
                 platform: "bitbucket".to_string(),
                 message: format!("Failed to fetch Bitbucket repositories for {}: {}", org, e),
-            })?;
+            }))?;
 
             if !response.status().is_success() {
-                return Err(MonPhareError::VcsApi {
+                return Err(crate::err!(VcsApi {
                     platform: "bitbucket".to_string(),
                     message: format!("Bitbucket API error: Status {}", response.status()),
-                });
+                }));
             }
 
-            let bitbucket_response: BitbucketRepositoriesResponse = response.json().await.map_err(|e| MonPhareError::VcsApi {
+            let bitbucket_response: BitbucketRepositoriesResponse = response.json().await.map_err(|e| crate::err!(VcsApi {
                 platform: "bitbucket".to_string(),
                 message: format!("Failed to parse Bitbucket repositories: {}", e),
-            })?;
+            }))?;
 
             if bitbucket_response.values.is_empty() {
                 break;

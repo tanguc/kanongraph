@@ -6,9 +6,11 @@
 //! - Analysis results and findings
 //! - Report formats and severity levels
 
+use crate::MonPhareError;
 use crate::graph::DependencyGraph;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing_error::SpanTrace;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -288,8 +290,9 @@ impl Constraint {
     /// # Errors
     ///
     /// Returns an error if the constraint string is invalid.
-    pub fn parse(s: &str) -> Result<Self, crate::error::MonPhareError> {
-        let ranges = parse_constraint_string(s)?;
+    pub fn parse(s: &str) -> Result<Self, MonPhareError> {
+        let ranges =  parse_constraint_string(s)?;
+
         Ok(Self {
             raw: s.to_string(),
             ranges,
@@ -449,7 +452,7 @@ impl VersionRange {
 }
 
 /// Parse a constraint string into version ranges.
-fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, crate::error::MonPhareError> {
+fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, MonPhareError> {
     let mut ranges = Vec::new();
 
     // Split on comma for multiple constraints
@@ -467,7 +470,7 @@ fn parse_constraint_string(s: &str) -> Result<Vec<VersionRange>, crate::error::M
 }
 
 /// Parse a single constraint expression.
-fn parse_single_constraint(s: &str) -> Result<VersionRange, crate::error::MonPhareError> {
+fn parse_single_constraint(s: &str) -> Result<VersionRange, MonPhareError> {
     let s = s.trim();
 
     // Pessimistic constraint
@@ -516,7 +519,8 @@ fn parse_single_constraint(s: &str) -> Result<VersionRange, crate::error::MonPha
 }
 
 /// Parse a version string, handling incomplete versions.
-fn parse_version(s: &str) -> Result<semver::Version, crate::error::MonPhareError> {
+fn parse_version(s: &str) -> Result<semver::Version, MonPhareError> {
+    tracing::span!(tracing::Level::TRACE, "parse_version", version = s);
     // Handle versions like "1.0" by appending ".0"
     let normalized = match s.matches('.').count() {
         0 => format!("{s}.0.0"),
@@ -527,12 +531,7 @@ fn parse_version(s: &str) -> Result<semver::Version, crate::error::MonPhareError
     // Remove any 'v' prefix
     let normalized = normalized.strip_prefix('v').unwrap_or(&normalized);
 
-    semver::Version::parse(normalized).map_err(|e| {
-        crate::error::MonPhareError::VersionParse {
-            version: s.to_string(),
-            source: e,
-        }
-    })
+    semver::Version::parse(normalized).map_err(|e| MonPhareError::VersionParse { version: s.to_string(), source: e, src_path: file!(), src_line: line!() })
 }
 
 /// Calculate the next version (for > constraint).

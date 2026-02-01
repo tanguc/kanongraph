@@ -100,10 +100,10 @@ impl GitProvider for GitHubProvider {
             return Ok(format!("https://github.com/{path}.git"));
         }
 
-        Err(MonPhareError::InvalidGitUrl {
+        Err(crate::err!(InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse GitHub URL".to_string(),
-        })
+        }))
     }
 
     async fn clone_repo(
@@ -205,10 +205,10 @@ impl GitProvider for GitLabProvider {
             return Ok(url.to_string());
         }
 
-        Err(MonPhareError::InvalidGitUrl {
+        Err(crate::err!(InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse GitLab URL".to_string(),
-        })
+        }))
     }
 
     async fn clone_repo(
@@ -301,10 +301,10 @@ impl GitProvider for BitbucketProvider {
             return Ok(normalized);
         }
 
-        Err(MonPhareError::InvalidGitUrl {
+        Err(crate::err!(InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse Bitbucket URL".to_string(),
-        })
+        }))
     }
 
     async fn clone_repo(
@@ -400,10 +400,10 @@ impl GitProvider for AzureDevOpsProvider {
             }
         }
 
-        Err(MonPhareError::InvalidGitUrl {
+        Err(crate::err!(InvalidGitUrl {
             url: url.to_string(),
             message: "Could not parse Azure DevOps URL".to_string(),
-        })
+        }))
     }
 
     async fn clone_repo(
@@ -472,18 +472,18 @@ async fn clone_repository_impl(
         tracing::debug!(url = %url, path = %target_path.display(), "Cloning repository");
 
         builder.clone(&url, &target_path).map_err(|e| {
-            MonPhareError::GitClone {
+            crate::err!(GitClone {
                 url: url.clone(),
                 message: e.message().to_string(),
-            }
+            })
         })?;
 
         Ok(())
     })
     .await
-    .map_err(|e| MonPhareError::Internal {
+    .map_err(|e| crate::err!(Internal {
         message: format!("Clone task failed: {e}"),
-    })?
+    }))?
 }
 
 #[cfg(test)]
