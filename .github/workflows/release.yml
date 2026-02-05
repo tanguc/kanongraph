@@ -76,6 +76,13 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
+      # Install OpenSSL on macOS (needed for git2/libgit2)
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+
       # Install cross for cross-compilation (Linux ARM64)
       - name: Install cross
         if: ${{ matrix.cross }}
@@ -85,6 +92,8 @@ jobs:
       - name: Build release binary (cross)
         if: ${{ matrix.cross }}
         run: cross build --release --target ${{ matrix.target }}
+        env:
+          CROSS_CONTAINER_OPTS: "--platform linux/amd64"
 
       # Build normally for native targets
       - name: Build release binary (native)
