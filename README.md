@@ -2,8 +2,8 @@
 
 **Terraform/OpenTofu module constraint analyzer and dependency mapper.**
 
-[![CI](https://github.com/tanguc/kanongraph/actions/workflows/ci.yml/badge.svg)](https://github.com/tanguc/kanongraph/actions/workflows/ci.yml)
-[![Release](https://github.com/tanguc/kanongraph/actions/workflows/release.yml/badge.svg)](https://github.com/tanguc/kanongraph/actions/workflows/release.yml)
+[![CI](https://github.com/tanguc/monphare/actions/workflows/ci.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/ci.yml)
+[![Release](https://github.com/tanguc/monphare/actions/workflows/release.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
@@ -25,7 +25,7 @@ MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds depende
 
 #### Pre-built Binaries (Recommended)
 
-Download the latest release for your platform from the [Releases page](https://github.com/tanguc/kanongraph/releases):
+Download the latest release for your platform from the [Releases page](https://github.com/tanguc/monphare/releases):
 
 | Platform | Architecture | Download |
 |----------|--------------|----------|
@@ -37,7 +37,7 @@ Download the latest release for your platform from the [Releases page](https://g
 
 ```bash
 # Linux/macOS - download and extract
-curl -LO https://github.com/tanguc/kanongraph/releases/latest/download/monphare-linux-x86_64.tar.gz
+curl -LO https://github.com/tanguc/monphare/releases/latest/download/monphare-linux-x86_64.tar.gz
 tar -xzf monphare-linux-x86_64.tar.gz
 sudo mv monphare /usr/local/bin/
 
@@ -49,8 +49,8 @@ monphare --version
 
 ```bash
 # From source
-git clone https://github.com/tanguc/kanongraph
-cd kanongraph
+git clone https://github.com/tanguc/monphare
+cd monphare
 cargo install --path .
 ```
 
