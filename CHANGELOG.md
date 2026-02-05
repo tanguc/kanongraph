@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1](https://github.com/tanguc/MonPhare/compare/v0.1.0...v0.1.1) (2026-02-05)
+
+
+### Bug Fixes
+
+* use vendored OpenSSL for cross-platform builds ([21b4d6f](https://github.com/tanguc/MonPhare/commit/21b4d6f5ed62356fd82486179ea5a5db12632aa3))
+
 ## 0.1.0 (2026-02-05)
 
 
