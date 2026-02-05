@@ -47,7 +47,8 @@ impl DeprecationAnalyzer {
         );
 
         tracing::debug!(
-            total_deprecated = deprecated_runtimes.len() + deprecated_modules.len() + deprecated_providers.len(),
+            total_deprecated =
+                deprecated_runtimes.len() + deprecated_modules.len() + deprecated_providers.len(),
             "Deprecation analysis complete"
         );
 
@@ -108,12 +109,12 @@ impl DeprecationAnalyzer {
             );
             for deprecated_constraint in deprecations {
                 if runtime.version.has_overlap_with(deprecated_constraint) {
-                            tracing::debug!(
-                                runtime_name = %runtime.name,
-                                version = %runtime.version.raw,
-                                deprecated_constraint = %deprecated_constraint.raw,
-                                "Runtime matches deprecated version"
-                            );
+                    tracing::debug!(
+                        runtime_name = %runtime.name,
+                        version = %runtime.version.raw,
+                        deprecated_constraint = %deprecated_constraint.raw,
+                        "Runtime matches deprecated version"
+                    );
                     findings.push(runtime.clone());
                     break;
                 }
@@ -186,22 +187,24 @@ impl DeprecationAnalyzer {
 
                     // Git ref rules
                     if let Some(rule_ref) = &rule.git_ref {
-                        if let ModuleSource::Git { ref_, .. } = &module.source {
-                            if let Some(actual_ref) = ref_ {
+                        if let ModuleSource::Git {
+                            ref_: Some(actual_ref),
+                            ..
+                        } = &module.source
+                        {
+                            tracing::debug!(
+                                module_name = %module.name,
+                                actual_ref = %actual_ref,
+                                rule_ref = %rule_ref,
+                                "Comparing Git ref with deprecation rule"
+                            );
+                            if actual_ref == rule_ref {
                                 tracing::debug!(
                                     module_name = %module.name,
-                                    actual_ref = %actual_ref,
-                                    rule_ref = %rule_ref,
-                                    "Comparing Git ref with deprecation rule"
+                                    "Module Git ref matches deprecated ref"
                                 );
-                                if actual_ref == rule_ref {
-                                    tracing::debug!(
-                                        module_name = %module.name,
-                                        "Module Git ref matches deprecated ref"
-                                    );
-                                    deprecated = true;
-                                    break;
-                                }
+                                deprecated = true;
+                                break;
                             }
                         }
                     }
@@ -284,7 +287,9 @@ impl DeprecationAnalyzer {
 fn module_deprecation_keys(source: &ModuleSource) -> Vec<String> {
     tracing::debug!("looking for module deprecations for source: {:#?}", source);
     match source {
-        ModuleSource::Git { host, url, subdir, .. } => {
+        ModuleSource::Git {
+            host, url, subdir, ..
+        } => {
             let mut keys: Vec<String> = Vec::new();
             let mut seen: HashSet<String> = HashSet::new();
 
@@ -348,7 +353,6 @@ fn module_deprecation_keys(source: &ModuleSource) -> Vec<String> {
         _ => vec![source.canonical_id()],
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -593,18 +597,19 @@ mod tests {
         ];
 
         let result = analyzer.analyze(&modules, &[], &[]);
-        println!("{:#?}", result);
+        println!("{result:#?}");
         assert_eq!(result.modules.len(), 3);
 
-        let deprecated_sources: HashSet<String> =
-            result.modules.iter().map(|m| m.source.canonical_id()).collect();
+        let deprecated_sources: HashSet<String> = result
+            .modules
+            .iter()
+            .map(|m| m.source.canonical_id())
+            .collect();
 
-        eprintln!("deprecated_sources: {:#?}", deprecated_sources);
+        eprintln!("deprecated_sources: {deprecated_sources:#?}");
 
-        assert!(deprecated_sources
-            .contains("registry.terraform.io/terraform-aws-modules/vpc/aws"));
-        assert!(deprecated_sources
-            .contains("registry.terraform.io/terraform-aws-modules/eks/aws"));
+        assert!(deprecated_sources.contains("registry.terraform.io/terraform-aws-modules/vpc/aws"));
+        assert!(deprecated_sources.contains("registry.terraform.io/terraform-aws-modules/eks/aws"));
         assert!(deprecated_sources.contains(
             "ssh.dev.azure.com/v3/foo-bar/Terraform/mod-azurerm-resource-group?ref=refs/tags/3.0.0"
         ));

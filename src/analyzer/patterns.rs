@@ -197,4 +197,3 @@ mod tests {
         assert!(!patterns.contains(&RiskyPattern::ExactVersion));
     }
 }
-

@@ -2,11 +2,12 @@
 //!
 //! This module provides the core HCL parsing functionality using the `hcl-rs` crate.
 
-use crate::VersionRange;
 use crate::config::Config;
-use crate::error::{MonPhareError, ErrorCollector, Result};
+use crate::error::{ErrorCollector, MonPhareError, Result};
 use crate::parser::{Parser, SKIP_FILES, TERRAFORM_EXTENSIONS};
-use crate::types::{Constraint, ModuleRef, ParsedHcl, ProviderRef, RuntimeRef, RuntimeSource, ScanWarning};
+use crate::types::{
+    Constraint, ModuleRef, ParsedHcl, ProviderRef, RuntimeRef, RuntimeSource, ScanWarning,
+};
 
 use hcl::{Block, Body, Expression};
 use std::path::Path;
@@ -49,10 +50,7 @@ impl HclParser {
         let mut error_collector = ErrorCollector::new();
 
         // Determine repository name from path
-        let repository = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .map(String::from);
+        let repository = path.file_name().and_then(|n| n.to_str()).map(String::from);
 
         // Walk directory tree
         for entry in WalkDir::new(path)
@@ -138,7 +136,7 @@ impl HclParser {
             }
 
             // Skip known directories
-            if SKIP_FILES.iter().any(|s| file_name == *s) {
+            if SKIP_FILES.contains(&file_name) {
                 tracing::debug!(path = %path.display(), reason = "known skip file", "Skipping path");
                 return true;
             }
@@ -174,12 +172,14 @@ impl Parser for HclParser {
         repository: Option<&str>,
     ) -> Result<ParsedHcl> {
         // Parse HCL content
-        let body: Body = hcl::from_str(content).map_err(|e| crate::err!(HclParse {
-            file: file_path.to_path_buf(),
-            message: e.to_string(),
-            line: None,
-            column: None,
-        }))?;
+        let body: Body = hcl::from_str(content).map_err(|e| {
+            crate::err!(HclParse {
+                file: file_path.to_path_buf(),
+                message: e.to_string(),
+                line: None,
+                column: None,
+            })
+        })?;
 
         let mut result = ParsedHcl {
             modules: Vec::new(),
@@ -203,7 +203,10 @@ impl Parser for HclParser {
                             if !self.config.scan.continue_on_error {
                                 return Err(crate::err!(HclParse {
                                     file: file_path.to_path_buf(),
-                                    message: format!("Failed to parse module block: {}", block.identifier),
+                                    message: format!(
+                                        "Failed to parse module block: {}",
+                                        block.identifier
+                                    ),
                                     line: None,
                                     column: None,
                                 }));
@@ -234,7 +237,7 @@ struct ModuleParseResult {
 }
 
 /// Parse a module block into a `ModuleRef`.
-/// 
+///
 /// Instead of failing on unparseable version constraints, we skip the constraint
 /// and record a warning. This allows scanning to continue.
 fn parse_module_block(
@@ -243,7 +246,7 @@ fn parse_module_block(
     repository: Option<&str>,
 ) -> Result<ModuleParseResult> {
     let mut warnings = Vec::new();
-    
+
     // Get module name from labels
     let name = block
         .labels
@@ -260,7 +263,10 @@ fn parse_module_block(
                 file = %file_path.display(),
                 "Module block missing source attribute"
             );
-            return Ok(ModuleParseResult { module: None, warnings });
+            return Ok(ModuleParseResult {
+                module: None,
+                warnings,
+            });
         }
     };
 
@@ -284,8 +290,7 @@ fn parse_module_block(
                     warnings.push(ScanWarning {
                         code: "unparseable-constraint".to_string(),
                         message: format!(
-                            "Module '{}' has unparseable version constraint '{}': {}",
-                            name, version_str, e
+                            "Module '{name}' has unparseable version constraint '{version_str}': {e}"
                         ),
                         file: file_path.to_path_buf(),
                         line: None,
@@ -371,8 +376,7 @@ fn parse_terraform_block(
                             warnings.push(ScanWarning {
                                 code: "unparseable-constraint".to_string(),
                                 message: format!(
-                                    "Provider '{}' has unparseable version constraint: {}",
-                                    provider_name, e
+                                    "Provider '{provider_name}' has unparseable version constraint: {e}"
                                 ),
                                 file: file_path.to_path_buf(),
                                 line: None,
@@ -413,7 +417,7 @@ fn parse_terraform_block(
                         );
                         warnings.push(ScanWarning {
                             code: "unparseable-constraint".to_string(),
-                            message: format!("Unparseable required_version: {}", e),
+                            message: format!("Unparseable required_version: {e}"),
                             file: file_path.to_path_buf(),
                             line: None,
                             repository: repository.map(String::from),
@@ -424,37 +428,39 @@ fn parse_terraform_block(
         }
     }
 
-    TerraformParseResult { runtimes, providers, warnings }
+    TerraformParseResult {
+        runtimes,
+        providers,
+        warnings,
+    }
 }
 
 fn parse_required_version(expr: &Expression, file_path: &Path) -> Result<Constraint> {
     if let Expression::String(version) = expr {
-        return Constraint::parse(version).map_err(|e| {
+        Constraint::parse(version).map_err(|e| {
             crate::err!(HclParse {
                 file: file_path.to_path_buf(),
                 message: format!("failed to parse required_version: {}", e),
                 line: None,
                 column: None,
             })
-        });
+        })
     } else {
         tracing::warn!(
             file = %file_path.display(),
             "required version is not a string expression, but got {expr:?}"
         );
-        return Err(crate::err!(HclParse {
+        Err(crate::err!(HclParse {
             file: file_path.to_path_buf(),
             message: format!("required version is not a string expression, but got {expr:?}"),
             line: None,
             column: None,
-        }));
+        }))
     }
 }
 
 /// Parse a provider requirement expression.
-fn parse_provider_requirement(
-    expr: &Expression,
-) -> Result<(Option<String>, Option<Constraint>)> {
+fn parse_provider_requirement(expr: &Expression) -> Result<(Option<String>, Option<Constraint>)> {
     match expr {
         // Simple string version constraint before 0.13.0 terraform version (legacy) stuff eg.
         // terraform {
@@ -530,10 +536,10 @@ fn object_key_to_string(key: &hcl::ObjectKey) -> String {
 
 #[cfg(test)]
 mod tests {
-    use comfy_table::ContentArrangement;
 
     use super::*;
     use crate::types::ModuleSource;
+    use crate::VersionRange;
 
     fn create_test_parser() -> HclParser {
         HclParser::new(&Config::default())
@@ -627,7 +633,11 @@ terraform {
         assert_eq!(aws.source.as_deref(), Some("hashicorp/aws"));
         assert!(aws.version_constraint.is_some());
 
-        let random = result.providers.iter().find(|p| p.name == "random").unwrap();
+        let random = result
+            .providers
+            .iter()
+            .find(|p| p.name == "random")
+            .unwrap();
         assert_eq!(random.source.as_deref(), Some("hashicorp/random"));
     }
 
@@ -733,13 +743,18 @@ module "vpc" {
     }
         "#;
 
-        let result = parser.parse_content(content, Path::new("test.tf"), None).unwrap();
+        let result = parser
+            .parse_content(content, Path::new("test.tf"), None)
+            .unwrap();
         assert_eq!(result.runtimes.len(), 1);
 
         let first_version = result.runtimes[0].version.ranges.first().unwrap();
 
         if let VersionRange::Exact(exact_version) = first_version {
-            assert_eq!(exact_version.to_string(), semver::Version::parse("1.59.42").unwrap().to_string());
+            assert_eq!(
+                exact_version.to_string(),
+                semver::Version::parse("1.59.42").unwrap().to_string()
+            );
         } else {
             panic!("Expected exact version");
         }
@@ -754,25 +769,30 @@ module "vpc" {
     }
         "#;
 
-        let result = parser.parse_content(content, Path::new("test.tf"), None).unwrap();
+        let result = parser
+            .parse_content(content, Path::new("test.tf"), None)
+            .unwrap();
         assert_eq!(result.runtimes.len(), 1);
 
         let first_version = result.runtimes[0].version.ranges.first().unwrap();
 
         if let VersionRange::GreaterThanOrEqual(exact_version) = first_version {
-            assert_eq!(exact_version.to_string(), semver::Version::parse("1.59.42").unwrap().to_string());
+            assert_eq!(
+                exact_version.to_string(),
+                semver::Version::parse("1.59.42").unwrap().to_string()
+            );
         } else {
             panic!("Expected exact version");
         }
 
         let second_version = result.runtimes[0].version.ranges.last().unwrap();
         if let VersionRange::LessThan(exact_version) = second_version {
-            assert_eq!(exact_version.to_string(), semver::Version::parse("2.0.0").unwrap().to_string());
+            assert_eq!(
+                exact_version.to_string(),
+                semver::Version::parse("2.0.0").unwrap().to_string()
+            );
         } else {
             panic!("Expected less than version");
         }
     }
-
-
 }
-

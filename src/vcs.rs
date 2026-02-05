@@ -54,10 +54,10 @@ impl VcsIdentifier {
     pub fn parse(s: &str) -> Result<Self, String> {
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() < 2 || parts[0] != "vcs" {
-            return Err(format!("Invalid VCS identifier format: {}", s));
+            return Err(format!("Invalid VCS identifier format: {s}"));
         }
 
-        let platform = parts[1];
+        let _platform = parts[1];
         let namespace_part = parts.get(2).copied().unwrap_or("");
 
         let components: Vec<String> = if namespace_part.is_empty() {
@@ -84,10 +84,7 @@ impl VcsIdentifier {
     /// Get the namespace path (everything after platform)
     #[must_use]
     pub fn namespace(&self) -> &str {
-        self.canonical
-            .splitn(3, ':')
-            .nth(2)
-            .unwrap_or("")
+        self.canonical.splitn(3, ':').nth(2).unwrap_or("")
     }
 
     /// Check if this represents a local module
@@ -142,15 +139,23 @@ impl VcsPlatform {
     /// # Errors
     ///
     /// Returns an error if the platform is not recognized
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    pub fn parse(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "github" => Ok(Self::GitHub),
             "gitlab" => Ok(Self::GitLab),
             "ado" | "azure" | "azure-devops" => Ok(Self::AzureDevOps),
             "bitbucket" => Ok(Self::Bitbucket),
             "local" => Ok(Self::Local),
-            _ => Err(format!("Unknown VCS platform: {}", s)),
+            _ => Err(format!("Unknown VCS platform: {s}")),
         }
+    }
+}
+
+impl std::str::FromStr for VcsPlatform {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
     }
 }
 
@@ -266,9 +271,12 @@ mod tests {
 
     #[test]
     fn test_platform_from_str() {
-        assert_eq!(VcsPlatform::from_str("github").unwrap(), VcsPlatform::GitHub);
-        assert_eq!(VcsPlatform::from_str("ado").unwrap(), VcsPlatform::AzureDevOps);
-        assert_eq!(VcsPlatform::from_str("AZURE").unwrap(), VcsPlatform::AzureDevOps);
-        assert!(VcsPlatform::from_str("unknown").is_err());
+        assert_eq!(VcsPlatform::parse("github").unwrap(), VcsPlatform::GitHub);
+        assert_eq!(VcsPlatform::parse("ado").unwrap(), VcsPlatform::AzureDevOps);
+        assert_eq!(
+            VcsPlatform::parse("AZURE").unwrap(),
+            VcsPlatform::AzureDevOps
+        );
+        assert!(VcsPlatform::parse("unknown").is_err());
     }
 }

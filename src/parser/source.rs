@@ -36,19 +36,24 @@ static GIT_URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 
 static GIT_SSH_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     // Matches git@host:path format
-    Regex::new(r"^git@([^:]+):(.+?)(?:\.git)?(?:\?ref=([^/]+))?(?://(.+))?$").expect("Invalid regex")
+    Regex::new(r"^git@([^:]+):(.+?)(?:\.git)?(?:\?ref=([^/]+))?(?://(.+))?$")
+        .expect("Invalid regex")
 });
 
 static GITHUB_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     // Matches github.com URLs without git:: prefix
-    Regex::new(r"^(?:https?://)?github\.com/([^/]+)/([^/?]+)(?:\.git)?(?:\?ref=([^/]+))?(?://(.+))?$")
-        .expect("Invalid regex")
+    Regex::new(
+        r"^(?:https?://)?github\.com/([^/]+)/([^/?]+)(?:\.git)?(?:\?ref=([^/]+))?(?://(.+))?$",
+    )
+    .expect("Invalid regex")
 });
 
 static S3_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     // Matches s3:: prefix or s3:// URLs
-    Regex::new(r"^s3::https://s3(?:-([a-z0-9-]+))?\.amazonaws\.com/([^/]+)/(.+)$|^s3://([^/]+)/(.+)$")
-        .expect("Invalid regex")
+    Regex::new(
+        r"^s3::https://s3(?:-([a-z0-9-]+))?\.amazonaws\.com/([^/]+)/(.+)$|^s3://([^/]+)/(.+)$",
+    )
+    .expect("Invalid regex")
 });
 
 static GCS_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
@@ -165,7 +170,12 @@ fn try_parse_git_source(source: &str) -> Option<ModuleSource> {
         let subdir = caps.get(3).map(|m| m.as_str().to_string());
 
         let host = canonical_git_host_from_url(&url).unwrap_or_else(|| url.clone());
-        return Some(ModuleSource::Git { host, url, ref_, subdir });
+        return Some(ModuleSource::Git {
+            host,
+            url,
+            ref_,
+            subdir,
+        });
     }
 
     // git@host:path format
@@ -178,13 +188,23 @@ fn try_parse_git_source(source: &str) -> Option<ModuleSource> {
         let ref_ = caps.get(3).map(|m| m.as_str().to_string());
         let subdir = caps.get(4).map(|m| m.as_str().to_string());
 
-        tracing::debug!(url = &url, ref_ = &ref_, subdir = subdir.as_deref().unwrap_or_default() , "Parsed Git SSH source");
+        tracing::debug!(
+            url = &url,
+            ref_ = &ref_,
+            subdir = subdir.as_deref().unwrap_or_default(),
+            "Parsed Git SSH source"
+        );
         let canonical_host = format!(
             "{}/{}",
             host,
             path.trim_start_matches('/').trim_end_matches(".git")
         );
-        return Some(ModuleSource::Git { host: canonical_host, url, ref_, subdir });
+        return Some(ModuleSource::Git {
+            host: canonical_host,
+            url,
+            ref_,
+            subdir,
+        });
     }
 
     // GitHub shorthand
@@ -194,7 +214,12 @@ fn try_parse_git_source(source: &str) -> Option<ModuleSource> {
         let url = format!("https://github.com/{owner}/{repo}.git");
         let ref_ = caps.get(3).map(|m| m.as_str().to_string());
         let subdir = caps.get(4).map(|m| m.as_str().to_string());
-        return Some(ModuleSource::Git { host: format!("github.com/{owner}/{repo}"), url, ref_, subdir });
+        return Some(ModuleSource::Git {
+            host: format!("github.com/{owner}/{repo}"),
+            url,
+            ref_,
+            subdir,
+        });
     }
 
     None
@@ -336,7 +361,12 @@ mod tests {
     fn test_parse_git_https_source() {
         let source = parse_module_source("git::https://github.com/example/module.git").unwrap();
         match source {
-            ModuleSource::Git { host, url, ref_, subdir } => {
+            ModuleSource::Git {
+                host,
+                url,
+                ref_,
+                subdir,
+            } => {
                 assert_eq!(url, "https://github.com/example/module.git");
                 assert_eq!(host, "github.com/example/module");
                 assert!(ref_.is_none());
@@ -360,7 +390,6 @@ mod tests {
 
     #[test]
     fn test_parse_git_with_subdir() {
-        
         let source =
             parse_module_source("git::https://github.com/example/module.git//modules/vpc").unwrap();
         match source {
@@ -474,4 +503,3 @@ mod tests {
         assert_eq!(source.canonical_id(), "local://../modules/vpc");
     }
 }
-

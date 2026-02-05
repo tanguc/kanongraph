@@ -69,4 +69,3 @@ pub trait ReportGenerator {
     /// Returns an error if generation fails.
     fn generate(&self, result: &ScanResult) -> Result<String>;
 }
-

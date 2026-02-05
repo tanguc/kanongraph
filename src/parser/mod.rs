@@ -57,4 +57,3 @@ pub trait Parser: Send + Sync {
         repository: Option<&str>,
     ) -> crate::Result<ParsedHcl>;
 }
-

@@ -10,7 +10,8 @@ use crate::config::Config;
 use crate::error::Result;
 use crate::graph::DependencyGraph;
 use crate::types::{
-    AnalysisResult, AnalysisSummary, Constraint, Finding, FindingCategory, Location, ModuleRef, ProviderRef, RuntimeRef, Severity
+    AnalysisResult, AnalysisSummary, Finding, FindingCategory, Location, ModuleRef, ProviderRef,
+    RuntimeRef, Severity,
 };
 use std::collections::HashMap;
 
@@ -90,7 +91,10 @@ impl Analyzer {
         // Phase 1: Check for missing constraints
         tracing::debug!("Phase 1: Checking for missing constraints");
         let missing = self.check_missing_constraints(modules, providers);
-        tracing::debug!(missing_constraints = missing.len(), "Missing constraints found");
+        tracing::debug!(
+            missing_constraints = missing.len(),
+            "Missing constraints found"
+        );
         findings.extend(missing);
 
         // Phase 2: Check for risky patterns
@@ -118,9 +122,21 @@ impl Analyzer {
         // Build summary
         tracing::debug!("Building analysis summary");
         let summary = self.build_summary(modules, providers, &findings);
-        let error_count = summary.findings_by_severity.get("ERROR").copied().unwrap_or(0)
-            + summary.findings_by_severity.get("CRITICAL").copied().unwrap_or(0);
-        let warning_count = summary.findings_by_severity.get("WARNING").copied().unwrap_or(0);
+        let error_count = summary
+            .findings_by_severity
+            .get("ERROR")
+            .copied()
+            .unwrap_or(0)
+            + summary
+                .findings_by_severity
+                .get("CRITICAL")
+                .copied()
+                .unwrap_or(0);
+        let warning_count = summary
+            .findings_by_severity
+            .get("WARNING")
+            .copied()
+            .unwrap_or(0);
         tracing::debug!(
             total_findings = findings.len(),
             errors = error_count,
@@ -154,10 +170,7 @@ impl Analyzer {
                 findings.push(Finding {
                     code: "missing-version".to_string(),
                     severity: Severity::Error,
-                    message: format!(
-                        "Module '{}' has no version constraint",
-                        module.name
-                    ),
+                    message: format!("Module '{}' has no version constraint", module.name),
                     description: Some(
                         "Modules without version constraints may unexpectedly update \
                          to incompatible versions. Always specify a version constraint."
@@ -170,9 +183,9 @@ impl Analyzer {
                         repository: module.repository.clone(),
                     }),
                     related_locations: vec![],
-                    suggestion: Some(format!(
-                        "Add a version constraint, e.g., version = \"~> 1.0\""
-                    )),
+                    suggestion: Some(
+                        "Add a version constraint, e.g., version = \"~> 1.0\"".to_string(),
+                    ),
                     category: FindingCategory::MissingConstraint,
                 });
             }
@@ -184,10 +197,7 @@ impl Analyzer {
                 findings.push(Finding {
                     code: "missing-version".to_string(),
                     severity: Severity::Error,
-                    message: format!(
-                        "Provider '{}' has no version constraint",
-                        provider.name
-                    ),
+                    message: format!("Provider '{}' has no version constraint", provider.name),
                     description: Some(
                         "Providers without version constraints may unexpectedly update \
                          to incompatible versions. Always specify a version constraint."
@@ -200,9 +210,9 @@ impl Analyzer {
                         repository: provider.repository.clone(),
                     }),
                     related_locations: vec![],
-                    suggestion: Some(format!(
-                        "Add a version constraint, e.g., version = \">= 4.0, < 6.0\""
-                    )),
+                    suggestion: Some(
+                        "Add a version constraint, e.g., version = \">= 4.0, < 6.0\"".to_string(),
+                    ),
                     category: FindingCategory::MissingConstraint,
                 });
             }
@@ -325,8 +335,7 @@ impl Analyzer {
                         }),
                         related_locations: vec![],
                         suggestion: Some(
-                            "Use a more specific constraint like '>= 4.0, < 6.0'"
-                                .to_string(),
+                            "Use a more specific constraint like '>= 4.0, < 6.0'".to_string(),
                         ),
                         category: FindingCategory::BroadConstraint,
                     });
@@ -433,13 +442,12 @@ impl Analyzer {
 
 #[cfg(test)]
 mod tests {
-    use semver::Version;
 
     use super::*;
-    use crate::VersionRange;
     use crate::config::DeprecationRef;
     use crate::graph::GraphBuilder;
     use crate::types::{ModuleSource, RuntimeSource};
+    use crate::{Constraint, VersionRange};
     use std::path::PathBuf;
 
     fn create_module(
@@ -480,7 +488,9 @@ mod tests {
         let modules = vec![create_module("vpc", "vpc", None, "repo-a")];
         let providers = vec![];
 
-        let graph = GraphBuilder::new().build(&modules, &providers, &[]).unwrap();
+        let graph = GraphBuilder::new()
+            .build(&modules, &providers, &[])
+            .unwrap();
         let config = Config::default();
         let analyzer = Analyzer::new(&config);
 
@@ -500,7 +510,9 @@ mod tests {
         let modules = vec![create_module("vpc", "vpc", Some(">= 0.0.0"), "repo-a")];
         let providers = vec![];
 
-        let graph = GraphBuilder::new().build(&modules, &providers, &[]).unwrap();
+        let graph = GraphBuilder::new()
+            .build(&modules, &providers, &[])
+            .unwrap();
         let config = Config::default();
         let analyzer = Analyzer::new(&config);
 
@@ -528,27 +540,33 @@ mod tests {
         let modules = vec![];
         let providers = vec![];
 
-        let graph = GraphBuilder::new().build(&modules, &providers, &runtimes).unwrap();
+        let graph = GraphBuilder::new()
+            .build(&modules, &providers, &runtimes)
+            .unwrap();
         let config = Config::default();
         let mut config = config.clone();
-        config.deprecations.runtime = HashMap::from([("terraform".to_string(), vec![DeprecationRef {
-            version: Some("<= 0.13.0".to_string()),
-            git_ref: None,
-            reason: "Legacy Terraform version, migrate to v0.13.1 or later".to_string(),
-            severity: Severity::Error.to_string(),
-            replacement: ">= 0.13.1".to_string(),
-        }])]);
+        config.deprecations.runtime = HashMap::from([(
+            "terraform".to_string(),
+            vec![DeprecationRef {
+                version: Some("<= 0.13.0".to_string()),
+                git_ref: None,
+                reason: "Legacy Terraform version, migrate to v0.13.1 or later".to_string(),
+                severity: Severity::Error.to_string(),
+                replacement: ">= 0.13.1".to_string(),
+            }],
+        )]);
         let analyzer = Analyzer::new(&config);
 
-        let result = analyzer.analyze(&graph, &modules, &providers, &runtimes).unwrap();
+        let result = analyzer
+            .analyze(&graph, &modules, &providers, &runtimes)
+            .unwrap();
 
-        let deprecations: Vec<_> = result
-            .deprecations
-            .runtimes
-            .iter()
-            .collect();
+        let deprecations: Vec<_> = result.deprecations.runtimes.iter().collect();
 
-        assert!(!deprecations.is_empty(), "Should detect runtime deprecation");
+        assert!(
+            !deprecations.is_empty(),
+            "Should detect runtime deprecation"
+        );
         assert_eq!(deprecations.len(), 1);
         assert_eq!(deprecations[0].name, "terraform");
         if let VersionRange::Exact(version) = deprecations[0].version.ranges.first().unwrap() {
@@ -566,7 +584,9 @@ mod tests {
         ];
         let providers = vec![create_provider("aws", Some(">= 4.0"), "repo-a")];
 
-        let graph = GraphBuilder::new().build(&modules, &providers, &[]).unwrap();
+        let graph = GraphBuilder::new()
+            .build(&modules, &providers, &[])
+            .unwrap();
         let config = Config::default();
         let analyzer = Analyzer::new(&config);
 
@@ -577,7 +597,4 @@ mod tests {
         assert_eq!(result.summary.unique_module_sources, 2);
         assert_eq!(result.summary.unique_provider_sources, 1);
     }
-
-
 }
-

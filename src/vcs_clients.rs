@@ -3,20 +3,15 @@
 //! This module provides HTTP clients for different VCS platforms
 //! to discover repositories under organizations/groups.
 
-use crate::error::{MonPhareError, Result, ResultExt};
-use crate::error::MonPhareError::VcsApi;
 use crate::vcs::{VcsClient, VcsPlatform, VcsRepository};
 use async_trait::async_trait;
+use base64::engine::{general_purpose::STANDARD, Engine as _};
+use dirs;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncReadExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-use std::{fs, process};
-use dirs;
-use base64::engine::{Engine as _, general_purpose::STANDARD};
-
 
 /// Rate limiting configuration
 #[derive(Debug, Clone)]
@@ -68,7 +63,12 @@ impl RateLimitedClient {
         self.request(reqwest::Method::GET, url, token).await
     }
 
-    async fn request(&self, method: reqwest::Method, url: &str, token: Option<&str>) -> crate::Result<reqwest::Response> {
+    async fn request(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        token: Option<&str>,
+    ) -> crate::Result<reqwest::Response> {
         let mut attempts = 0;
         let mut delay = self.config.delay_ms;
 
@@ -76,27 +76,36 @@ impl RateLimitedClient {
             attempts += 1;
             let mut request = self.client.request(method.clone(), url);
             if let Some(t) = token {
-                request = request.header("Authorization", format!("token {}", t)); // GitHub
+                request = request.header("Authorization", format!("token {t}"));
+                // GitHub
             }
 
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "unknown".to_string(), // Placeholder, will be updated by specific clients
-                message: format!("HTTP request failed for {}: {}", url, e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "unknown".to_string(), // Placeholder, will be updated by specific clients
+                    message: format!("HTTP request failed for {}: {}", url, e),
+                })
+            })?;
 
             if response.status().is_success() {
                 return Ok(response);
             }
 
             let status = response.status();
-            if status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                if attempts <= self.config.max_retries {
-                    tracing::warn!("Request to {} failed with status {} (attempt {}/{}), retrying in {}ms",
-                                   url, status, attempts, self.config.max_retries, delay);
-                    tokio::time::sleep(Duration::from_millis(delay)).await;
-                    delay = (delay as f64 * self.config.backoff_multiplier) as u64;
-                    continue;
-                }
+            if (status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS)
+                && attempts <= self.config.max_retries
+            {
+                tracing::warn!(
+                    "Request to {} failed with status {} (attempt {}/{}), retrying in {}ms",
+                    url,
+                    status,
+                    attempts,
+                    self.config.max_retries,
+                    delay
+                );
+                tokio::time::sleep(Duration::from_millis(delay)).await;
+                delay = (delay as f64 * self.config.backoff_multiplier) as u64;
+                continue;
             }
 
             return Err(crate::err!(VcsApi {
@@ -167,13 +176,19 @@ impl VcsClient for GitHubClient {
                 self.api_base_url, org, page, per_page
             );
 
-            let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
-            request = request.header("Authorization", format!("token {}", token));
+            let mut request = self
+                .client
+                .client()
+                .client()
+                .request(reqwest::Method::GET, &url);
+            request = request.header("Authorization", format!("token {token}"));
 
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "github".to_string(),
-                message: format!("Failed to fetch GitHub repositories: {}", e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "github".to_string(),
+                    message: format!("Failed to fetch GitHub repositories: {}", e),
+                })
+            })?;
 
             if !response.status().is_success() {
                 return Err(crate::err!(VcsApi {
@@ -182,10 +197,12 @@ impl VcsClient for GitHubClient {
                 }));
             }
 
-            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| crate::err!(VcsApi {
-                platform: "github".to_string(),
-                message: format!("Failed to parse GitHub repositories: {}", e),
-            }))?;
+            let page_repos: Vec<GitHubRepository> = response.json().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "github".to_string(),
+                    message: format!("Failed to parse GitHub repositories: {}", e),
+                })
+            })?;
 
             let page_len = page_repos.len();
             if page_repos.is_empty() {
@@ -207,7 +224,10 @@ impl VcsClient for GitHubClient {
             if page_len < per_page {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(self.client.client().config().delay_ms)).await;
+            tokio::time::sleep(Duration::from_millis(
+                self.client.client().config().delay_ms,
+            ))
+            .await;
         }
 
         // Cache the results
@@ -267,17 +287,22 @@ impl VcsClient for GitLabClient {
 
         loop {
             let url = format!(
-                "https://gitlab.com/api/v4/groups/{}/projects?page={}&per_page={}&include_subgroups=true",
-                org, page, per_page
+                "https://gitlab.com/api/v4/groups/{org}/projects?page={page}&per_page={per_page}&include_subgroups=true"
             );
 
-            let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
+            let mut request = self
+                .client
+                .client()
+                .client()
+                .request(reqwest::Method::GET, &url);
             request = request.header("PRIVATE-TOKEN", token);
 
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "gitlab".to_string(),
-                message: format!("Failed to fetch GitLab projects: {}", e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "gitlab".to_string(),
+                    message: format!("Failed to fetch GitLab projects: {}", e),
+                })
+            })?;
 
             if !response.status().is_success() {
                 return Err(crate::err!(VcsApi {
@@ -286,10 +311,12 @@ impl VcsClient for GitLabClient {
                 }));
             }
 
-            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| crate::err!(VcsApi {
-                platform: "gitlab".to_string(),
-                message: format!("Failed to parse GitLab projects: {}", e),
-            }))?;
+            let page_repos: Vec<GitLabProject> = response.json().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "gitlab".to_string(),
+                    message: format!("Failed to parse GitLab projects: {}", e),
+                })
+            })?;
 
             let page_len = page_repos.len();
             if page_repos.is_empty() {
@@ -311,7 +338,10 @@ impl VcsClient for GitLabClient {
             if page_len < per_page {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(self.client.client().config().delay_ms)).await;
+            tokio::time::sleep(Duration::from_millis(
+                self.client.client().config().delay_ms,
+            ))
+            .await;
         }
 
         // Cache the results
@@ -347,30 +377,46 @@ impl AzureDevOpsClient {
     }
 
     /// List all projects in an organization
-    async fn list_projects(&self, organization: &str, token: Option<&str>) -> crate::Result<Vec<String>> {
+    async fn list_projects(
+        &self,
+        organization: &str,
+        token: Option<&str>,
+    ) -> crate::Result<Vec<String>> {
         let mut projects = Vec::new();
         let mut continuation_token: Option<String> = None;
 
         loop {
             let mut url = format!(
-                "https://dev.azure.com/{}/_apis/projects?api-version=7.1&$top=100",
-                organization
+                "https://dev.azure.com/{organization}/_apis/projects?api-version=7.1&$top=100"
             );
             if let Some(ct) = &continuation_token {
-                url.push_str(&format!("&continuationToken={}", ct));
+                url.push_str(&format!("&continuationToken={ct}"));
             }
 
-            let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
+            let mut request = self
+                .client
+                .client()
+                .client()
+                .request(reqwest::Method::GET, &url);
             if let Some(t) = token {
-                request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", t))));
+                request = request.header(
+                    "Authorization",
+                    format!("Basic {}", STANDARD.encode(format!(":{t}"))),
+                );
             }
 
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "ado".to_string(),
-                message: format!("Failed to fetch Azure DevOps projects for {}: {}", organization, e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "ado".to_string(),
+                    message: format!(
+                        "Failed to fetch Azure DevOps projects for {}: {}",
+                        organization, e
+                    ),
+                })
+            })?;
 
-            let next_continuation = response.headers()
+            let next_continuation = response
+                .headers()
                 .get("x-ms-continuationtoken")
                 .and_then(|h| h.to_str().ok())
                 .map(String::from);
@@ -378,22 +424,26 @@ impl AzureDevOpsClient {
             if !response.status().is_success() {
                 return Err(crate::err!(VcsApi {
                     platform: "ado".to_string(),
-                    message: format!("Azure DevOps API error listing projects: Status {}", response.status()),
+                    message: format!(
+                        "Azure DevOps API error listing projects: Status {}",
+                        response.status()
+                    ),
                 }));
             }
             use azure_devops_rust_api::core::models::TeamProjectReferenceList;
 
-            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| crate::err!(VcsApi {
-                platform: "ado".to_string(),
-                message: format!("Failed to parse Azure DevOps projects: {}", e),
-            }))?;
+            let ado_response: TeamProjectReferenceList = response.json().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "ado".to_string(),
+                    message: format!("Failed to parse Azure DevOps projects: {}", e),
+                })
+            })?;
 
             if ado_response.value.is_empty() {
                 break;
             }
 
             tracing::debug!("Azure DevOps projects response: {:?}", ado_response);
-            process::exit(1);
 
             projects.extend(ado_response.value.into_iter().map(|p| p.name));
 
@@ -402,37 +452,61 @@ impl AzureDevOpsClient {
                 break;
             }
 
-            tokio::time::sleep(Duration::from_millis(self.client.client().config().delay_ms)).await;
+            tokio::time::sleep(Duration::from_millis(
+                self.client.client().config().delay_ms,
+            ))
+            .await;
         }
 
         Ok(projects)
     }
 
     /// List all repositories in a specific project
-    async fn list_project_repos(&self, organization: &str, project: &str, token: &str) -> crate::Result<Vec<VcsRepository>> {
+    async fn list_project_repos(
+        &self,
+        organization: &str,
+        project: &str,
+        token: &str,
+    ) -> crate::Result<Vec<VcsRepository>> {
         let mut repos = Vec::new();
         let mut continuation_token: Option<String> = None;
-        tracing::debug!("Listing project repositories for {}/{}", organization, project);
+        tracing::debug!(
+            "Listing project repositories for {}/{}",
+            organization,
+            project
+        );
 
         loop {
             let mut url = format!(
-                "https://dev.azure.com/{}/{}/_apis/git/repositories?api-version=7.1&$top=100",
-                organization, project
+                "https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1&$top=100"
             );
             if let Some(ct) = &continuation_token {
-                url.push_str(&format!("&continuationToken={}", ct));
+                url.push_str(&format!("&continuationToken={ct}"));
             }
 
-            let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
+            let mut request = self
+                .client
+                .client()
+                .client()
+                .request(reqwest::Method::GET, &url);
             tracing::debug!("Request URL: {} and token content: {:?}", url, token);
-            request = request.header("Authorization", format!("Basic {}", STANDARD.encode(format!(":{}", token))));
+            request = request.header(
+                "Authorization",
+                format!("Basic {}", STANDARD.encode(format!(":{token}"))),
+            );
 
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "ado".to_string(),
-                message: format!("Failed to fetch Azure DevOps repositories for {}/{}: {}", organization, project, e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "ado".to_string(),
+                    message: format!(
+                        "Failed to fetch Azure DevOps repositories for {}/{}: {}",
+                        organization, project, e
+                    ),
+                })
+            })?;
 
-            let next_continuation = response.headers()
+            let next_continuation = response
+                .headers()
                 .get("x-ms-continuationtoken")
                 .and_then(|h| h.to_str().ok())
                 .map(String::from);
@@ -446,10 +520,15 @@ impl AzureDevOpsClient {
             }
 
             // Get response text first for better error messages
-            let response_text = response.text().await.map_err(|e| crate::err!(VcsApi {
-                platform: "ado".to_string(),
-                message: format!("[src/vcs_clients.rs:440] Failed to read Azure DevOps response: {}", e),
-            }))?;
+            let response_text = response.text().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "ado".to_string(),
+                    message: format!(
+                        "[src/vcs_clients.rs:440] Failed to read Azure DevOps response: {}",
+                        e
+                    ),
+                })
+            })?;
 
             use azure_devops_rust_api::git::models::GitRepositoryList;
 
@@ -468,18 +547,26 @@ impl AzureDevOpsClient {
                 })
             })?;
 
-            tracing::debug!("Azure DevOps project repositories response: {:?}", ado_response);
+            tracing::debug!(
+                "Azure DevOps project repositories response: {:?}",
+                ado_response
+            );
             if ado_response.value.is_empty() {
                 break;
             }
 
-            repos.extend(ado_response.value.into_iter().map(|r| VcsRepository {
-                name: format!("{}/{}", project, r.name),
-                clone_url: r.web_url.unwrap_or("UNKNOWN-NOT-FOUND".to_string()),
-                default_branch: r.default_branch.map(|s| s.replace("refs/heads/", "")).unwrap_or_else(|| "main".to_string()),
-                archived: r.is_disabled.unwrap_or(false),
-                fork: r.is_fork.unwrap_or(false),
-                platform_id: r.id,
+            repos.extend(ado_response.value.into_iter().map(|r| {
+                VcsRepository {
+                    name: format!("{}/{}", project, r.name),
+                    clone_url: r.web_url.unwrap_or("UNKNOWN-NOT-FOUND".to_string()),
+                    default_branch: r
+                        .default_branch
+                        .map(|s| s.replace("refs/heads/", ""))
+                        .unwrap_or_else(|| "main".to_string()),
+                    archived: r.is_disabled.unwrap_or(false),
+                    fork: r.is_fork.unwrap_or(false),
+                    platform_id: r.id,
+                }
             }));
 
             continuation_token = next_continuation;
@@ -487,7 +574,10 @@ impl AzureDevOpsClient {
                 break;
             }
 
-            tokio::time::sleep(Duration::from_millis(self.client.client().config().delay_ms)).await;
+            tokio::time::sleep(Duration::from_millis(
+                self.client.client().config().delay_ms,
+            ))
+            .await;
         }
 
         Ok(repos)
@@ -506,7 +596,7 @@ impl VcsClient for AzureDevOpsClient {
         token: &str,
     ) -> crate::Result<Vec<VcsRepository>> {
         tracing::debug!(org = %org, "Discovering repositories for Azure DevOps organization");
-        
+
         // Check cache first
         if let Some(cached_repos) = self.client.cache().load("ado", org)? {
             tracing::debug!("Using cached repository list for Azure DevOps {}", org);
@@ -520,20 +610,41 @@ impl VcsClient for AzureDevOpsClient {
             // org only - scan all projects
             1 => {
                 let organization = parts[0];
-                tracing::info!("Discovering all projects in Azure DevOps organization: {}", organization);
+                tracing::info!(
+                    "Discovering all projects in Azure DevOps organization: {}",
+                    organization
+                );
 
                 let projects = self.list_projects(organization, Some(token)).await?;
-                tracing::info!("Found {} projects in organization {}", projects.len(), organization);
+                tracing::info!(
+                    "Found {} projects in organization {}",
+                    projects.len(),
+                    organization
+                );
 
                 for project in projects {
-                    tracing::debug!("Fetching repositories from project: {}/{}", organization, project);
+                    tracing::debug!(
+                        "Fetching repositories from project: {}/{}",
+                        organization,
+                        project
+                    );
                     match self.list_project_repos(organization, &project, token).await {
                         Ok(project_repos) => {
-                            tracing::debug!("Found {} repos in {}/{}", project_repos.len(), organization, project);
+                            tracing::debug!(
+                                "Found {} repos in {}/{}",
+                                project_repos.len(),
+                                organization,
+                                project
+                            );
                             repos.extend(project_repos);
                         }
                         Err(e) => {
-                            tracing::warn!("Failed to list repos in {}/{}: {}", organization, project, e);
+                            tracing::warn!(
+                                "Failed to list repos in {}/{}: {}",
+                                organization,
+                                project,
+                                e
+                            );
                             // Continue with other projects
                         }
                     }
@@ -543,8 +654,14 @@ impl VcsClient for AzureDevOpsClient {
             2 => {
                 let organization = parts[0];
                 let project = parts[1];
-                tracing::debug!("Fetching repositories from Azure DevOps project: {}/{}", organization, project);
-                repos = self.list_project_repos(organization, project, token).await?;
+                tracing::debug!(
+                    "Fetching repositories from Azure DevOps project: {}/{}",
+                    organization,
+                    project
+                );
+                repos = self
+                    .list_project_repos(organization, project, token)
+                    .await?;
             }
             _ => {
                 return Err(crate::err!(VcsApi {
@@ -554,8 +671,11 @@ impl VcsClient for AzureDevOpsClient {
             }
         }
 
-        tracing::info!("Discovered {} total repositories in Azure DevOps {}", repos.len(), org);
-
+        tracing::info!(
+            "Discovered {} total repositories in Azure DevOps {}",
+            repos.len(),
+            org
+        );
 
         crate::wait_for_user_input().await;
 
@@ -569,7 +689,6 @@ impl VcsClient for AzureDevOpsClient {
         Ok(repos)
     }
 }
-
 
 /// Bitbucket API client
 pub struct BitbucketClient {
@@ -595,26 +714,34 @@ impl VcsClient for BitbucketClient {
     ) -> crate::Result<Vec<VcsRepository>> {
         // Check cache first
         if let Some(cached_repos) = self.client.cache().load("bitbucket", org)? {
-            tracing::debug!("Using cached repository list for Bitbucket workspace {}", org);
+            tracing::debug!(
+                "Using cached repository list for Bitbucket workspace {}",
+                org
+            );
             return Ok(cached_repos);
         }
 
         tracing::debug!("Fetching repository list for Bitbucket workspace {}", org);
         let mut repos = Vec::new();
         let mut next_page_url: Option<String> = Some(format!(
-            "https://api.bitbucket.org/2.0/repositories/{}?pagelen=100",
-            org
+            "https://api.bitbucket.org/2.0/repositories/{org}?pagelen=100"
         ));
 
         while let Some(url) = next_page_url.take() {
-            let mut request = self.client.client().client().request(reqwest::Method::GET, &url);
-    
+            let mut request = self
+                .client
+                .client()
+                .client()
+                .request(reqwest::Method::GET, &url);
+
             // Bitbucket uses x-token-auth as username for app passwords
             request = request.basic_auth("x-token-auth", Some(token));
-            let response = request.send().await.map_err(|e| crate::err!(VcsApi {
-                platform: "bitbucket".to_string(),
-                message: format!("Failed to fetch Bitbucket repositories for {}: {}", org, e),
-            }))?;
+            let response = request.send().await.map_err(|e| {
+                crate::err!(VcsApi {
+                    platform: "bitbucket".to_string(),
+                    message: format!("Failed to fetch Bitbucket repositories for {}: {}", org, e),
+                })
+            })?;
 
             if !response.status().is_success() {
                 return Err(crate::err!(VcsApi {
@@ -623,10 +750,13 @@ impl VcsClient for BitbucketClient {
                 }));
             }
 
-            let bitbucket_response: BitbucketRepositoriesResponse = response.json().await.map_err(|e| crate::err!(VcsApi {
-                platform: "bitbucket".to_string(),
-                message: format!("Failed to parse Bitbucket repositories: {}", e),
-            }))?;
+            let bitbucket_response: BitbucketRepositoriesResponse =
+                response.json().await.map_err(|e| {
+                    crate::err!(VcsApi {
+                        platform: "bitbucket".to_string(),
+                        message: format!("Failed to parse Bitbucket repositories: {}", e),
+                    })
+                })?;
 
             if bitbucket_response.values.is_empty() {
                 break;
@@ -634,7 +764,12 @@ impl VcsClient for BitbucketClient {
 
             repos.extend(bitbucket_response.values.into_iter().filter_map(|r| {
                 // Find HTTPS clone link
-                let clone_link = r.links.clone.into_iter().find(|link| link.name == "https")?.href;
+                let clone_link = r
+                    .links
+                    .clone
+                    .into_iter()
+                    .find(|link| link.name == "https")?
+                    .href;
                 Some(VcsRepository {
                     name: r.full_name,
                     clone_url: clone_link,
@@ -649,7 +784,10 @@ impl VcsClient for BitbucketClient {
 
             if next_page_url.is_some() {
                 // Rate limiting
-                tokio::time::sleep(Duration::from_millis(self.client.client().config().delay_ms)).await;
+                tokio::time::sleep(Duration::from_millis(
+                    self.client.client().config().delay_ms,
+                ))
+                .await;
             }
         }
 
@@ -666,6 +804,7 @@ impl VcsClient for BitbucketClient {
 
 /// Bitbucket repository API response structure.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct BitbucketRepository {
     uuid: String,
     full_name: String,
@@ -693,6 +832,7 @@ struct BitbucketCloneLink {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct BitbucketRepositoriesResponse {
     size: u64,
     page: u64,
@@ -739,7 +879,7 @@ impl RepoCache {
             return Ok(None);
         }
 
-        let cache_file = self.cache_dir.join(format!("{}-{}.json", platform, org));
+        let cache_file = self.cache_dir.join(format!("{platform}-{org}.json"));
         if !cache_file.exists() {
             return Ok(None);
         }
@@ -757,7 +897,11 @@ impl RepoCache {
             tracing::debug!("Cache expired for {}/{}", platform, org);
             // Optionally remove expired cache file
             if let Err(e) = std::fs::remove_file(&cache_file) {
-                tracing::warn!("Failed to remove expired cache file {}: {}", cache_file.display(), e);
+                tracing::warn!(
+                    "Failed to remove expired cache file {}: {}",
+                    cache_file.display(),
+                    e
+                );
             }
             Ok(None)
         }
@@ -769,7 +913,7 @@ impl RepoCache {
             return Ok(());
         }
 
-        let cache_file = self.cache_dir.join(format!("{}-{}.json", platform, org));
+        let cache_file = self.cache_dir.join(format!("{platform}-{org}.json"));
         std::fs::create_dir_all(&self.cache_dir)?;
 
         let cached = CachedRepositories {
@@ -780,7 +924,12 @@ impl RepoCache {
         let content = serde_json::to_string_pretty(&cached)?;
         std::fs::write(&cache_file, content)?;
 
-        tracing::debug!("Repositories cached for {}/{} at {}", platform, org, cache_file.display());
+        tracing::debug!(
+            "Repositories cached for {}/{} at {}",
+            platform,
+            org,
+            cache_file.display()
+        );
         Ok(())
     }
 
@@ -794,7 +943,7 @@ impl RepoCache {
             for entry in std::fs::read_dir(&self.cache_dir)? {
                 let entry = entry?;
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
                     std::fs::remove_file(&path)?;
                 }
             }
@@ -812,7 +961,7 @@ impl RepoCache {
         if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
             for entry in entries.filter_map(std::result::Result::ok) {
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
                     *stats.get_mut("cache_files").unwrap() += 1;
                     if let Ok(metadata) = std::fs::metadata(&path) {
                         *stats.get_mut("cache_size_bytes").unwrap() += metadata.len() as usize;
@@ -865,8 +1014,8 @@ impl Default for CachedRateLimitedClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::{matchers::*, Mock, MockServer, ResponseTemplate};
     use serde_json::json;
+    use wiremock::{matchers::*, Mock, MockServer, ResponseTemplate};
 
     // Helper to setup mock server for GitHub
     async fn setup_github_mock_server(org: &str, repos: Vec<&str>) -> MockServer {
@@ -884,7 +1033,7 @@ mod tests {
         }
 
         Mock::given(method("GET"))
-            .and(path(format!("/orgs/{}/repos", org)))
+            .and(path(format!("/orgs/{org}/repos")))
             .respond_with(ResponseTemplate::new(200).set_body_json(response_repos))
             .mount(&mock_server)
             .await;
@@ -899,7 +1048,11 @@ mod tests {
 
         let client = GitHubClient::new(CachedRateLimitedClient::new(
             RateLimitedClient::new(RateLimitConfig::default()),
-            RepoCache::new(PathBuf::from("./test_cache"), Duration::from_secs(3600), true),
+            RepoCache::new(
+                PathBuf::from("./test_cache"),
+                Duration::from_secs(3600),
+                true,
+            ),
         ))
         .with_api_base_url(mock_server.uri());
 
@@ -918,4 +1071,3 @@ mod tests {
         Ok(())
     }
 }
-

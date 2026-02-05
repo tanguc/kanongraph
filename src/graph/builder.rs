@@ -81,7 +81,10 @@ impl GraphBuilder {
         // Phase 1: Build provider map for resolution
         tracing::debug!("Phase 1: Building provider map");
         self.build_provider_map(providers);
-        tracing::debug!(provider_map_size = self.provider_map.len(), "Provider map built");
+        tracing::debug!(
+            provider_map_size = self.provider_map.len(),
+            "Provider map built"
+        );
 
         // Phase 2: Add all provider nodes
         tracing::debug!("Phase 2: Adding provider nodes");
@@ -139,7 +142,7 @@ impl GraphBuilder {
                     );
                 }
             }
- 
+
             // Link local module references
             if let ModuleSource::Local { path } = &module.source {
                 // Find other modules that might be the target of this local reference
@@ -185,8 +188,7 @@ impl GraphBuilder {
                 qualified_source = %source,
                 "Mapping provider name to source"
             );
-            self.provider_map
-                .insert(provider.name.clone(), source);
+            self.provider_map.insert(provider.name.clone(), source);
         }
     }
 
@@ -266,7 +268,7 @@ impl GraphBuilder {
                     "Cannot infer provider for module source type"
                 );
                 None
-            },
+            }
         };
         if let Some(ref provider) = inferred {
             tracing::debug!(
@@ -302,10 +304,7 @@ impl GraphBuilder {
 
         for (id, module) in module_ids {
             let source_key = module.source.canonical_id();
-            by_source
-                .entry(source_key)
-                .or_default()
-                .push(id.as_str());
+            by_source.entry(source_key).or_default().push(id.as_str());
         }
 
         // For sources with multiple modules, we don't create edges
@@ -361,7 +360,7 @@ mod tests {
         let builder = GraphBuilder::new();
         let graph = builder.build(&[], &[], &[]).unwrap();
 
-        assert_eq!(graph.node_count(), 0);  // 0 modules, 0 providers, 0 runtimes
+        assert_eq!(graph.node_count(), 0); // 0 modules, 0 providers, 0 runtimes
         assert_eq!(graph.edge_count(), 0);
     }
 
@@ -485,4 +484,3 @@ mod tests {
         assert_eq!(graph.node_count(), 2);
     }
 }
-

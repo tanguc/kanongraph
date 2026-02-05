@@ -5,9 +5,9 @@
 
 use crate::config::CacheOptions;
 use crate::error::{MonPhareError, Result};
-use std::path::{Path, PathBuf};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 
 /// Cache entry metadata stored in a `.monphare-cache` file.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -28,10 +28,7 @@ pub struct CacheEntry {
 #[derive(Debug)]
 pub enum CacheResult {
     /// Cache hit - repository exists and is up to date
-    Hit {
-        path: PathBuf,
-        sha: String,
-    },
+    Hit { path: PathBuf, sha: String },
     /// Cache hit but repository was updated (fetched new changes)
     Updated {
         path: PathBuf,
@@ -39,10 +36,7 @@ pub enum CacheResult {
         new_sha: String,
     },
     /// Cache miss - repository was freshly cloned
-    Miss {
-        path: PathBuf,
-        sha: String,
-    },
+    Miss { path: PathBuf, sha: String },
 }
 
 impl CacheResult {
@@ -110,14 +104,14 @@ impl CacheManager {
     pub fn cache_key(&self, url: &str) -> String {
         // Extract a readable name from the URL
         let readable_name = extract_repo_name(url);
-        
+
         // Add a short hash to ensure uniqueness for similar URLs
         let mut hasher = DefaultHasher::new();
         url.hash(&mut hasher);
         let hash = hasher.finish();
         let short_hash = format!("{:08x}", hash & 0xFFFFFFFF);
-        
-        format!("{}-{}", readable_name, short_hash)
+
+        format!("{readable_name}-{short_hash}")
     }
 
     /// Get the path where a repository would be cached.
@@ -259,9 +253,11 @@ impl CacheManager {
             .current_dir(repo_path)
             .output()
             .await
-            .map_err(|e| crate::err!(Git {
-                message: format!("Failed to get HEAD SHA: {}", e),
-            }))?;
+            .map_err(|e| {
+                crate::err!(Git {
+                    message: format!("Failed to get HEAD SHA: {}", e),
+                })
+            })?;
 
         if !output.status.success() {
             return Err(crate::err!(Git {
@@ -291,9 +287,11 @@ impl CacheManager {
             .current_dir(repo_path)
             .output()
             .await
-            .map_err(|e| crate::err!(Git {
-                message: format!("Failed to fetch: {}", e),
-            }))?;
+            .map_err(|e| {
+                crate::err!(Git {
+                    message: format!("Failed to fetch: {}", e),
+                })
+            })?;
 
         if !output.status.success() {
             return Err(crate::err!(Git {
@@ -306,7 +304,7 @@ impl CacheManager {
 
         // Reset to origin/HEAD or origin/{branch}
         let remote_ref = branch
-            .map(|b| format!("origin/{}", b))
+            .map(|b| format!("origin/{b}"))
             .unwrap_or_else(|| "origin/HEAD".to_string());
 
         let output = tokio::process::Command::new("git")
@@ -314,9 +312,11 @@ impl CacheManager {
             .current_dir(repo_path)
             .output()
             .await
-            .map_err(|e| crate::err!(Git {
-                message: format!("Failed to reset: {}", e),
-            }))?;
+            .map_err(|e| {
+                crate::err!(Git {
+                    message: format!("Failed to reset: {}", e),
+                })
+            })?;
 
         if !output.status.success() {
             // Try with FETCH_HEAD if origin/HEAD fails
@@ -325,9 +325,11 @@ impl CacheManager {
                 .current_dir(repo_path)
                 .output()
                 .await
-                .map_err(|e| crate::err!(Git {
-                    message: format!("Failed to reset to FETCH_HEAD: {}", e),
-                }))?;
+                .map_err(|e| {
+                    crate::err!(Git {
+                        message: format!("Failed to reset to FETCH_HEAD: {}", e),
+                    })
+                })?;
 
             if !output.status.success() {
                 return Err(crate::err!(Git {
@@ -356,9 +358,11 @@ impl CacheManager {
             .await
             .map_err(|e| MonPhareError::io(&self.cache_dir, e, file!(), line!()))?;
 
-        while let Some(entry) = dir.next_entry().await.map_err(|e| {
-            MonPhareError::io(&self.cache_dir, e, file!(), line!())
-        })? {
+        while let Some(entry) = dir
+            .next_entry()
+            .await
+            .map_err(|e| MonPhareError::io(&self.cache_dir, e, file!(), line!()))?
+        {
             let path = entry.path();
             if path.is_dir() {
                 let meta_path = path.join(".monphare-cache");
@@ -394,9 +398,7 @@ impl CacheManager {
 /// Extract a readable repository name from a URL.
 fn extract_repo_name(url: &str) -> String {
     // Remove common prefixes and suffixes
-    let url = url
-        .trim_end_matches('/')
-        .trim_end_matches(".git");
+    let url = url.trim_end_matches('/').trim_end_matches(".git");
 
     // Try to extract org/repo from various URL formats
     if let Some(rest) = url.strip_prefix("git@") {

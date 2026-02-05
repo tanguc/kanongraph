@@ -12,6 +12,7 @@ use std::collections::HashMap;
 /// Text report generator for CLI output.
 pub struct TextReporter {
     use_colors: bool,
+    #[allow(dead_code)]
     verbose: bool,
     strict_mode: bool,
 }
@@ -57,16 +58,12 @@ impl ReportGenerator for TextReporter {
 impl TextReporter {
     /// Format the header with status and summary.
     fn format_header(&self, result: &ScanResult) -> String {
-        let errors = count_by_severity(result, |s| matches!(s, Severity::Error | Severity::Critical));
+        let errors = count_by_severity(result, |s| {
+            matches!(s, Severity::Error | Severity::Critical)
+        });
         let warnings = count_by_severity(result, |s| matches!(s, Severity::Warning));
 
-        let status = if errors > 0 {
-            if self.use_colors {
-                "FAILED".red().bold().to_string()
-            } else {
-                "FAILED".to_string()
-            }
-        } else if warnings > 0 && self.strict_mode {
+        let status = if errors > 0 || (warnings > 0 && self.strict_mode) {
             if self.use_colors {
                 "FAILED".red().bold().to_string()
             } else {
@@ -87,14 +84,14 @@ impl TextReporter {
         let version = env!("CARGO_PKG_VERSION");
 
         let errors_str = if self.use_colors && errors > 0 {
-            format!("{} errors", errors).red().bold().to_string()
+            format!("{errors} errors").red().bold().to_string()
         } else {
-            format!("{} errors", errors)
+            format!("{errors} errors")
         };
         let warnings_str = if self.use_colors && warnings > 0 {
-            format!("{} warnings", warnings).yellow().bold().to_string()
+            format!("{warnings} warnings").yellow().bold().to_string()
         } else {
-            format!("{} warnings", warnings)
+            format!("{warnings} warnings")
         };
 
         format!(
@@ -150,9 +147,9 @@ impl TextReporter {
 
             // Repo header
             let repo_title = if self.use_colors {
-                format!("─ {} ", repo).cyan().bold().to_string()
+                format!("─ {repo} ").cyan().bold().to_string()
             } else {
-                format!("─ {} ", repo)
+                format!("─ {repo} ")
             };
 
             let counts = format_counts(repo_errors, repo_warnings, self.use_colors);
@@ -185,7 +182,9 @@ impl TextReporter {
                 };
 
                 let sev_cell = if self.use_colors {
-                    Cell::new(sev_text).fg(sev_color).add_attribute(Attribute::Bold)
+                    Cell::new(sev_text)
+                        .fg(sev_color)
+                        .add_attribute(Attribute::Bold)
                 } else {
                     Cell::new(sev_text)
                 };
@@ -205,7 +204,8 @@ impl TextReporter {
                     .as_ref()
                     .map(|l| {
                         let path_str = l.file.to_string_lossy();
-                        let relative_path = extract_relative_path(&path_str, l.repository.as_deref());
+                        let relative_path =
+                            extract_relative_path(&path_str, l.repository.as_deref());
                         format!("{}:{}", relative_path, l.line)
                     })
                     .unwrap_or_else(|| "-".to_string());
@@ -253,7 +253,10 @@ impl TextReporter {
         // Group warnings by repository
         let mut by_repo: HashMap<String, Vec<&ScanWarning>> = HashMap::new();
         for warning in &result.warnings {
-            let repo = warning.repository.clone().unwrap_or_else(|| "local".to_string());
+            let repo = warning
+                .repository
+                .clone()
+                .unwrap_or_else(|| "local".to_string());
             by_repo.entry(repo).or_default().push(warning);
         }
 
@@ -270,8 +273,8 @@ impl TextReporter {
                     &warning.file.display().to_string(),
                     warning.repository.as_deref(),
                 );
-                let line_info = warning.line.map_or(String::new(), |l| format!(":{}", l));
-                
+                let line_info = warning.line.map_or(String::new(), |l| format!(":{l}"));
+
                 let msg = if self.use_colors {
                     format!(
                         "    {} {}{}: {}\n",
@@ -293,7 +296,9 @@ impl TextReporter {
 
     /// Format the footer.
     fn format_footer(&self, result: &ScanResult) -> String {
-        let errors = count_by_severity(result, |s| matches!(s, Severity::Error | Severity::Critical));
+        let errors = count_by_severity(result, |s| {
+            matches!(s, Severity::Error | Severity::Critical)
+        });
         let warnings = count_by_severity(result, |s| matches!(s, Severity::Warning));
 
         if errors > 0 {
@@ -304,7 +309,9 @@ impl TextReporter {
             }
         } else if warnings > 0 && self.strict_mode {
             if self.use_colors {
-                "Strict mode: fix warnings to pass.\n\n".yellow().to_string()
+                "Strict mode: fix warnings to pass.\n\n"
+                    .yellow()
+                    .to_string()
             } else {
                 "Strict mode: fix warnings to pass.\n\n".to_string()
             }
@@ -351,7 +358,11 @@ fn format_counts(errors: usize, warnings: usize, use_colors: bool) -> String {
     }
 
     if warnings > 0 {
-        let s = format!("{} warning{}", warnings, if warnings == 1 { "" } else { "s" });
+        let s = format!(
+            "{} warning{}",
+            warnings,
+            if warnings == 1 { "" } else { "s" }
+        );
         if use_colors {
             parts.push(s.yellow().to_string());
         } else {
@@ -384,7 +395,7 @@ fn extract_resource_name(message: &str, _category: &crate::types::FindingCategor
                 "resource"
             };
 
-            return format!("{}.{}", prefix, name);
+            return format!("{prefix}.{name}");
         }
     }
 
@@ -410,7 +421,7 @@ fn extract_relative_path(full_path: &str, repo_name: Option<&str>) -> String {
     // Fallback: try common patterns for temp directories
     // Pattern: /tmp/.../repo-name/actual/path.tf or /var/folders/.../repo-name/...
     let parts: Vec<&str> = full_path.split('/').collect();
-    
+
     // Look for common temp dir indicators and skip past them
     for (i, part) in parts.iter().enumerate() {
         // Skip if this looks like a temp/clone directory marker
@@ -419,13 +430,19 @@ fn extract_relative_path(full_path: &str, repo_name: Option<&str>) -> String {
         }
         // If we find something that looks like a repo name (contains hyphen or starts with letter)
         // and there's more path after it, return from here
-        if i > 0 && parts.len() > i + 1 {
-            if part.contains('-') || part.chars().next().map(|c| c.is_alphabetic()).unwrap_or(false) {
-                // Check if next part looks like a real path (not another temp marker)
-                let remaining: Vec<&str> = parts[i + 1..].to_vec();
-                if !remaining.is_empty() && !remaining[0].is_empty() {
-                    return remaining.join("/");
-                }
+        if i > 0
+            && parts.len() > i + 1
+            && (part.contains('-')
+                || part
+                    .chars()
+                    .next()
+                    .map(|c| c.is_alphabetic())
+                    .unwrap_or(false))
+        {
+            // Check if next part looks like a real path (not another temp marker)
+            let remaining: Vec<&str> = parts[i + 1..].to_vec();
+            if !remaining.is_empty() && !remaining[0].is_empty() {
+                return remaining.join("/");
             }
         }
     }
@@ -487,6 +504,7 @@ fn shorten_str(s: &str, max_len: usize) -> String {
 }
 
 /// Shorten a file path intelligently.
+#[allow(dead_code)]
 fn shorten_path(path: &str, max_len: usize) -> String {
     if path.len() <= max_len {
         return path.to_string();
@@ -516,8 +534,7 @@ fn shorten_path(path: &str, max_len: usize) -> String {
 mod tests {
     use super::*;
     use crate::types::{
-        AnalysisResult, Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef,
-        RuntimeSource,
+        AnalysisResult, Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef, RuntimeSource,
     };
     use std::path::PathBuf;
 
@@ -589,8 +606,14 @@ mod tests {
     #[test]
     fn test_short_issue_description() {
         let category = crate::types::FindingCategory::MissingConstraint;
-        assert_eq!(short_issue_description("missing-version", &category), "No version");
-        assert_eq!(short_issue_description("no-upper-bound", &category), "No upper bound");
+        assert_eq!(
+            short_issue_description("missing-version", &category),
+            "No version"
+        );
+        assert_eq!(
+            short_issue_description("no-upper-bound", &category),
+            "No upper bound"
+        );
     }
 
     #[test]
@@ -599,7 +622,10 @@ mod tests {
             extract_current_value("Module has overly broad constraint: >= 0.0.0"),
             ">= 0.0.0"
         );
-        assert_eq!(extract_current_value("Module has no version constraint"), "-");
+        assert_eq!(
+            extract_current_value("Module has no version constraint"),
+            "-"
+        );
     }
 
     #[test]
@@ -616,10 +642,13 @@ mod tests {
             extract_relative_path("/tmp/abc123/my-repo/modules/vpc/main.tf", Some("my-repo")),
             "modules/vpc/main.tf"
         );
-        
+
         // Repo name at different position
         assert_eq!(
-            extract_relative_path("/var/folders/xyz/my-repo/terraform/main.tf", Some("my-repo")),
+            extract_relative_path(
+                "/var/folders/xyz/my-repo/terraform/main.tf",
+                Some("my-repo")
+            ),
             "terraform/main.tf"
         );
     }

@@ -32,8 +32,8 @@
 //! ```
 
 mod conflict;
-mod patterns;
 mod deprecation;
+mod patterns;
 
 pub use conflict::Analyzer;
 pub use patterns::{PatternChecker, RiskyPattern};

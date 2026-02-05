@@ -79,7 +79,8 @@ impl GitClient {
         }
 
         // Fallback to non-cached clone
-        self.clone_without_cache(url, provider, branch, &token).await
+        self.clone_without_cache(url, provider, branch, &token)
+            .await
     }
 
     /// Clone a repository using the cache.
@@ -94,7 +95,7 @@ impl GitClient {
         self.cache_manager.ensure_cache_dir().await?;
 
         let cache_path = self.cache_manager.get_cache_path(url);
-        
+
         // Check if we have a cached version
         if let Some(cache_entry) = self.cache_manager.get_cached(url).await {
             // Check if cache is fresh enough to skip fetch entirely
@@ -146,7 +147,9 @@ impl GitClient {
                             "Repository updated"
                         );
                         // Update cache entry with new SHA
-                        self.cache_manager.update_cache_entry(url, &new_sha, branch).await?;
+                        self.cache_manager
+                            .update_cache_entry(url, &new_sha, branch)
+                            .await?;
                     }
                     return Ok(cache_path);
                 }
@@ -184,7 +187,9 @@ impl GitClient {
 
         // Get the HEAD SHA and create cache entry
         let head_sha = self.cache_manager.get_head_sha(&cache_path).await?;
-        self.cache_manager.update_cache_entry(url, &head_sha, branch).await?;
+        self.cache_manager
+            .update_cache_entry(url, &head_sha, branch)
+            .await?;
 
         tracing::info!(
             path = %cache_path.display(),
@@ -265,9 +270,7 @@ impl GitClient {
     /// Extract a repository name from a URL for use as a directory name.
     fn extract_repo_name(&self, url: &str) -> String {
         // Try to extract org/repo from the URL
-        let url = url
-            .trim_end_matches('/')
-            .trim_end_matches(".git");
+        let url = url.trim_end_matches('/').trim_end_matches(".git");
 
         // Split by common separators
         let parts: Vec<&str> = url.split(&['/', ':'][..]).collect();
@@ -292,7 +295,9 @@ impl GitClient {
     }
 
     /// Get appropriate token for a URL based on platform detection.
-    #[must_use]
+    ///
+    /// # Errors
+    /// Returns an error if no token is found for the detected platform.
     pub fn get_token_for_url(&self, url: &str) -> Result<String> {
         let platform = self.get_provider_type(url);
         let platform_str = match platform {
@@ -419,4 +424,3 @@ mod tests {
             .is_err());
     }
 }
-

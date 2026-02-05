@@ -6,7 +6,7 @@
 use crate::config::Config;
 use crate::error::Result;
 use crate::reporter::ReportGenerator;
-use crate::types::{ScanWarning, Severity, ScanResult};
+use crate::types::{ScanResult, ScanWarning, Severity};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -145,7 +145,11 @@ impl From<&ScanResult> for JsonReport {
                                 .any(|f| f.message.contains(&pattern))
                         })
                         .count(),
-                    local: result.modules.iter().filter(|m| m.source.is_local()).count(),
+                    local: result
+                        .modules
+                        .iter()
+                        .filter(|m| m.source.is_local())
+                        .count(),
                 },
                 providers: ProviderSummary {
                     total: result.providers.len(),
@@ -166,7 +170,12 @@ impl From<&ScanResult> for JsonReport {
                     .modules
                     .iter()
                     .filter_map(|m| m.repository.as_ref())
-                    .chain(result.providers.iter().filter_map(|p| p.repository.as_ref()))
+                    .chain(
+                        result
+                            .providers
+                            .iter()
+                            .filter_map(|p| p.repository.as_ref()),
+                    )
                     .collect::<std::collections::HashSet<_>>()
                     .len(),
             },
@@ -472,7 +481,9 @@ fn group_findings_by_repo(result: &ScanResult) -> Vec<RepoFindings> {
     for finding in &result.analysis.findings {
         let (repo, file, line) = if let Some(loc) = &finding.location {
             (
-                loc.repository.clone().unwrap_or_else(|| "unknown".to_string()),
+                loc.repository
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string()),
                 loc.file.to_string_lossy().to_string(),
                 loc.line,
             )

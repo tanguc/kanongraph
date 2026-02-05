@@ -5,8 +5,8 @@
 use clap::Parser;
 use monphare::cli::{Cli, Commands};
 use monphare::{Config, Scanner, VcsPlatform};
-use tracing_error::ErrorLayer;
 use std::process::ExitCode;
+use tracing_error::ErrorLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main]
@@ -22,7 +22,7 @@ async fn main() -> ExitCode {
         Ok(exit_code) => exit_code,
         Err(e) => {
             // print clean error message
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
 
             // Print backtrace if RUST_BACKTRACE is set
             let backtrace = e.backtrace();
@@ -40,7 +40,10 @@ async fn main() -> ExitCode {
                         in_monphare = true;
                         prev_was_at = false;
                         eprintln!("{line}");
-                    } else if in_monphare && trimmed.starts_with("at ") && trimmed.contains("./src/") {
+                    } else if in_monphare
+                        && trimmed.starts_with("at ")
+                        && trimmed.contains("./src/")
+                    {
                         // This is the location line for a monphare frame
                         eprintln!("{line}");
                         in_monphare = false;
@@ -65,18 +68,17 @@ fn init_logging(verbose: u8, quiet: bool) {
         EnvFilter::new("error")
     } else {
         // First try to use RUST_LOG from environment, otherwise use verbose flag
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| {
-                // Default filter: show logs for monphare only, suppress all other crates
-                let base_level = match verbose {
-                    0 => "warn",
-                    1 => "info",
-                    2 => "debug",
-                    _ => "trace",
-                };
-                // Filter string: monphare at specified level, everything else at warn
-                EnvFilter::new(&format!("warn,monphare={}", base_level))
-            })
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            // Default filter: show logs for monphare only, suppress all other crates
+            let base_level = match verbose {
+                0 => "warn",
+                1 => "info",
+                2 => "debug",
+                _ => "trace",
+            };
+            // Filter string: monphare at specified level, everything else at warn
+            EnvFilter::new(format!("warn,monphare={base_level}"))
+        })
     };
 
     tracing_subscriber::registry()
@@ -104,11 +106,14 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         Commands::Scan(args) => {
             tracing::debug!("Executing scan command");
             let scanner = Scanner::new(config.clone());
-            
+
             // Handle bulk VCS organization scanning
-            let bulk_scan = args.github.is_some() || args.gitlab.is_some() || args.ado.is_some() || args.bitbucket.is_some();
+            let bulk_scan = args.github.is_some()
+                || args.gitlab.is_some()
+                || args.ado.is_some()
+                || args.bitbucket.is_some();
             tracing::debug!(bulk_scan = bulk_scan, "Scan mode determined");
-            
+
             let result = if bulk_scan {
                 // Bulk organization scanning
                 let org_spec = if let Some(org) = &args.github {
@@ -122,12 +127,15 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 } else {
                     unreachable!()
                 };
-                
-                scanner.scan_vcs_organization(org_spec.0, &org_spec.1, args.yes).await?
+
+                scanner
+                    .scan_vcs_organization(org_spec.0, &org_spec.1, args.yes)
+                    .await?
             } else if !args.repositories.is_empty() {
                 let urls: Vec<&str> = args.repositories.iter().map(String::as_str).collect();
                 scanner.scan_repositories(&urls).await?
-            } else { // Single directory scanning
+            } else {
+                // Single directory scanning
                 scanner.scan_paths(args.paths).await?
             };
 
@@ -157,8 +165,6 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
 
         Commands::Graph(args) => {
             let scanner = Scanner::new(config);
-            let paths: Vec<&std::path::Path> =
-                args.paths.iter().map(std::path::PathBuf::as_path).collect();
             let result = scanner.scan_paths(args.paths).await?;
 
             // Output graph in requested format
@@ -180,7 +186,10 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             let config_path = std::path::Path::new("monphare.yaml");
 
             if config_path.exists() {
-                anyhow::bail!("Configuration file already exists: {}", config_path.display());
+                anyhow::bail!(
+                    "Configuration file already exists: {}",
+                    config_path.display()
+                );
             }
 
             std::fs::write(config_path, example_config)?;
@@ -234,4 +243,3 @@ fn load_config(cli: &Cli) -> anyhow::Result<Config> {
     config.load_vcs_tokens_from_env();
     Ok(config)
 }
-

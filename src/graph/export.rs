@@ -179,7 +179,7 @@ fn export_json(graph: &DependencyGraph) -> Result<String> {
                     file_path: p.file_path.to_string_lossy().to_string(),
                     repository: p.repository.clone(),
                 });
-            },
+            }
             GraphNode::Runtime(r) => {
                 runtime_count += 1;
                 nodes.push(JsonNode {
@@ -312,10 +312,7 @@ fn escape_dot_string(s: &str) -> String {
 
 /// Escape a string for use as a DOT node ID.
 fn escape_dot_id(s: &str) -> String {
-    s.replace(':', "_")
-        .replace('/', "_")
-        .replace('.', "_")
-        .replace('-', "_")
+    s.replace([':', '/', '.', '-'], "_")
 }
 
 /// Sanitize a string for use as a Mermaid node ID.
@@ -338,12 +335,13 @@ fn escape_mermaid_string(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use semver::Version;
 
     use super::*;
-    use crate::VersionRange;
     use crate::graph::GraphBuilder;
-    use crate::types::{Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef, RuntimeSource};
+    use crate::types::{
+        Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef, RuntimeSource,
+    };
+
     use std::path::PathBuf;
 
     fn create_test_graph() -> DependencyGraph {
@@ -380,7 +378,9 @@ mod tests {
             repository: Some("test".to_string()),
         }];
 
-        GraphBuilder::new().build(&modules, &providers, &runtimes).unwrap()
+        GraphBuilder::new()
+            .build(&modules, &providers, &runtimes)
+            .unwrap()
     }
 
     #[test]
@@ -425,10 +425,6 @@ mod tests {
 
     #[test]
     fn test_sanitize_mermaid_id() {
-        assert_eq!(
-            sanitize_mermaid_id("module:test/vpc"),
-            "module_test_vpc"
-        );
+        assert_eq!(sanitize_mermaid_id("module:test/vpc"), "module_test_vpc");
     }
 }
-

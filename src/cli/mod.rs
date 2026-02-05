@@ -96,19 +96,39 @@ pub struct ScanArgs {
     pub repositories: Vec<String>,
 
     /// GitHub organization to scan all repositories from
-    #[arg(long, value_name = "ORG", conflicts_with = "paths", conflicts_with = "repositories")]
+    #[arg(
+        long,
+        value_name = "ORG",
+        conflicts_with = "paths",
+        conflicts_with = "repositories"
+    )]
     pub github: Option<String>,
 
     /// GitLab group to scan all projects from
-    #[arg(long, value_name = "GROUP", conflicts_with = "paths", conflicts_with = "repositories")]
+    #[arg(
+        long,
+        value_name = "GROUP",
+        conflicts_with = "paths",
+        conflicts_with = "repositories"
+    )]
     pub gitlab: Option<String>,
 
     /// Azure DevOps organization or project to scan (format: 'org' for all projects, or 'org/project' for single project)
-    #[arg(long, value_name = "ORG[/PROJECT]", conflicts_with = "paths", conflicts_with = "repositories")]
+    #[arg(
+        long,
+        value_name = "ORG[/PROJECT]",
+        conflicts_with = "paths",
+        conflicts_with = "repositories"
+    )]
     pub ado: Option<String>,
 
     /// Bitbucket workspace to scan all repositories from
-    #[arg(long, value_name = "WORKSPACE", conflicts_with = "paths", conflicts_with = "repositories")]
+    #[arg(
+        long,
+        value_name = "WORKSPACE",
+        conflicts_with = "paths",
+        conflicts_with = "repositories"
+    )]
     pub bitbucket: Option<String>,
 
     /// Skip confirmation prompt for large organizations
@@ -248,13 +268,7 @@ mod tests {
 
     #[test]
     fn test_graph_command() {
-        let cli = Cli::parse_from([
-            "monphare",
-            "graph",
-            "./terraform",
-            "--format",
-            "mermaid",
-        ]);
+        let cli = Cli::parse_from(["monphare", "graph", "./terraform", "--format", "mermaid"]);
         match cli.command {
             Commands::Graph(args) => {
                 assert_eq!(args.format, GraphFormat::Mermaid);
@@ -300,4 +314,3 @@ mod tests {
         assert!(matches!(cli.command, Commands::Scan(_)));
     }
 }
-

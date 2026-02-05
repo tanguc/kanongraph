@@ -2,9 +2,9 @@
 //!
 //! This module contains implementations for each supported Git provider.
 
-use crate::{error::{MonPhareError, Result}};
+use crate::error::Result;
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::Path;
 
 /// Trait for Git provider implementations.
 ///
@@ -32,7 +32,7 @@ pub trait GitProvider: Send + Sync {
     async fn clone_repo(
         &self,
         url: &str,
-        target_path: &PathBuf,
+        target_path: &Path,
         branch: Option<&str>,
         token: Option<&str>,
     ) -> Result<()>;
@@ -109,7 +109,7 @@ impl GitProvider for GitHubProvider {
     async fn clone_repo(
         &self,
         url: &str,
-        target_path: &PathBuf,
+        target_path: &Path,
         branch: Option<&str>,
         token: Option<&str>,
     ) -> Result<()> {
@@ -131,10 +131,9 @@ impl GitProvider for GitHubProvider {
         // Add authentication token if provided
         let clone_url = if let Some(token) = token {
             // Insert token into URL: https://token@github.com/...
-            let authenticated_url = normalized_url.replace("https://", &format!("https://{token}@"));
-            tracing::debug!(
-                "Added authentication token to URL (token masked)"
-            );
+            let authenticated_url =
+                normalized_url.replace("https://", &format!("https://{token}@"));
+            tracing::debug!("Added authentication token to URL (token masked)");
             authenticated_url
         } else {
             tracing::debug!("No token provided, cloning without authentication");
@@ -214,7 +213,7 @@ impl GitProvider for GitLabProvider {
     async fn clone_repo(
         &self,
         url: &str,
-        target_path: &PathBuf,
+        target_path: &Path,
         branch: Option<&str>,
         token: Option<&str>,
     ) -> Result<()> {
@@ -310,7 +309,7 @@ impl GitProvider for BitbucketProvider {
     async fn clone_repo(
         &self,
         url: &str,
-        target_path: &PathBuf,
+        target_path: &Path,
         branch: Option<&str>,
         token: Option<&str>,
     ) -> Result<()> {
@@ -409,7 +408,7 @@ impl GitProvider for AzureDevOpsProvider {
     async fn clone_repo(
         &self,
         url: &str,
-        target_path: &PathBuf,
+        target_path: &Path,
         branch: Option<&str>,
         token: Option<&str>,
     ) -> Result<()> {
@@ -447,13 +446,9 @@ impl GitProvider for AzureDevOpsProvider {
 }
 
 /// Common repository cloning implementation using git2.
-async fn clone_repository_impl(
-    url: &str,
-    target_path: &PathBuf,
-    branch: Option<&str>,
-) -> Result<()> {
+async fn clone_repository_impl(url: &str, target_path: &Path, branch: Option<&str>) -> Result<()> {
     let url = url.to_string();
-    let target_path = target_path.clone();
+    let target_path = target_path.to_path_buf();
     let branch = branch.map(String::from);
 
     // Run git2 operations in a blocking task
@@ -481,9 +476,11 @@ async fn clone_repository_impl(
         Ok(())
     })
     .await
-    .map_err(|e| crate::err!(Internal {
-        message: format!("Clone task failed: {e}"),
-    }))?
+    .map_err(|e| {
+        crate::err!(Internal {
+            message: format!("Clone task failed: {e}"),
+        })
+    })?
 }
 
 #[cfg(test)]
@@ -495,7 +492,9 @@ mod tests {
         let provider = GitHubProvider::new();
 
         assert_eq!(
-            provider.normalize_url("https://github.com/org/repo").unwrap(),
+            provider
+                .normalize_url("https://github.com/org/repo")
+                .unwrap(),
             "https://github.com/org/repo.git"
         );
 
@@ -517,7 +516,9 @@ mod tests {
         let provider = GitLabProvider::new();
 
         assert_eq!(
-            provider.normalize_url("https://gitlab.com/org/repo").unwrap(),
+            provider
+                .normalize_url("https://gitlab.com/org/repo")
+                .unwrap(),
             "https://gitlab.com/org/repo.git"
         );
 
@@ -573,4 +574,3 @@ mod tests {
         assert!(!azure.can_handle("https://github.com/org/repo"));
     }
 }
-

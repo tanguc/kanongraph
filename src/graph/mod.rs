@@ -268,4 +268,3 @@ mod tests {
         assert!(mermaid.contains("graph"));
     }
 }
-

@@ -6,7 +6,6 @@
 //! - `EdgeType`: Relationships between nodes
 //! - `NodeId`: Unique identifier for nodes
 
-use crate::VersionRange;
 use crate::types::{Constraint, ModuleRef, ModuleSource, ProviderRef, RuntimeRef};
 use crate::vcs::VcsIdentifier;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -311,7 +310,7 @@ impl DependencyGraph {
                         self.node_index.insert(p.id.clone(), idx);
                         self.providers.insert(p.id.clone(), idx);
                     }
-                },
+                }
                 GraphNode::Runtime(r) => {
                     if !self.node_index.contains_key(&r.id) {
                         let idx = self.inner.add_node(node.clone());
@@ -340,9 +339,7 @@ impl DependencyGraph {
 
         // Merge VCS metadata
         for (node_id, vcs_id) in other.vcs_metadata {
-            if !self.vcs_metadata.contains_key(&node_id) {
-                self.vcs_metadata.insert(node_id, vcs_id);
-            }
+            self.vcs_metadata.entry(node_id).or_insert(vcs_id);
         }
     }
 
@@ -402,7 +399,7 @@ impl GraphNode {
         match self {
             Self::Module(m) => &m.id,
             Self::Provider(p) => &p.id,
-            Self::Runtime(r) => &r.id
+            Self::Runtime(r) => &r.id,
         }
     }
 

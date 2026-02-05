@@ -71,7 +71,12 @@ fn generate_html_report(result: &ScanResult) -> String {
         .modules
         .iter()
         .filter_map(|m| m.repository.as_ref())
-        .chain(result.providers.iter().filter_map(|p| p.repository.as_ref()))
+        .chain(
+            result
+                .providers
+                .iter()
+                .filter_map(|p| p.repository.as_ref()),
+        )
         .collect();
 
     // Generate scan warnings HTML (if any)
@@ -249,9 +254,8 @@ fn generate_html_report(result: &ScanResult) -> String {
                     <span class="section-icon">⚠</span>
                     Skipped Items
                 </h2>
-                {}
-            </section>"##,
-                warnings_html
+                {warnings_html}
+            </section>"##
             )
         } else {
             String::new()
@@ -268,7 +272,10 @@ fn generate_scan_warnings_html(result: &ScanResult) -> String {
     // Group warnings by repository
     let mut by_repo: HashMap<String, Vec<&ScanWarning>> = HashMap::new();
     for warning in &result.warnings {
-        let repo = warning.repository.clone().unwrap_or_else(|| "local".to_string());
+        let repo = warning
+            .repository
+            .clone()
+            .unwrap_or_else(|| "local".to_string());
         by_repo.entry(repo).or_default().push(warning);
     }
 
@@ -296,7 +303,7 @@ fn generate_scan_warnings_html(result: &ScanResult) -> String {
             let file = warning.file.display().to_string();
             // Extract relative path from file
             let relative_file = extract_relative_path(&file, warning.repository.as_deref());
-            let line_info = warning.line.map_or(String::new(), |l| format!(":{}", l));
+            let line_info = warning.line.map_or(String::new(), |l| format!(":{l}"));
 
             html.push_str(&format!(
                 r#"<div class="finding warning">
@@ -332,9 +339,13 @@ fn extract_relative_path(full_path: &str, repo_name: Option<&str>) -> String {
             return after_repo.trim_start_matches('/').to_string();
         }
     }
-    
+
     // Fallback: just return the file name or short path
-    full_path.split('/').last().unwrap_or(full_path).to_string()
+    full_path
+        .split('/')
+        .next_back()
+        .unwrap_or(full_path)
+        .to_string()
 }
 
 /// Generate findings HTML grouped by repository.
@@ -440,11 +451,7 @@ fn generate_findings_html(result: &ScanResult) -> String {
                     Severity::Info => "severity-info",
                 };
 
-                let line = finding
-                    .location
-                    .as_ref()
-                    .map(|l| l.line)
-                    .unwrap_or(0);
+                let line = finding.location.as_ref().map(|l| l.line).unwrap_or(0);
 
                 html.push_str(&format!(
                     r#"<div class="finding-card {severity_class}">
@@ -568,7 +575,11 @@ fn generate_modules_html(result: &ScanResult) -> String {
                     .any(|f| f.message.contains(&pattern))
             };
 
-            let status_class = if has_issue { "status-bad" } else { "status-good" };
+            let status_class = if has_issue {
+                "status-bad"
+            } else {
+                "status-good"
+            };
             let status_icon = if has_issue { "✗" } else { "✓" };
 
             let version = module
@@ -681,7 +692,11 @@ fn generate_providers_html(result: &ScanResult) -> String {
                     .any(|f| f.message.contains(&pattern))
             };
 
-            let status_class = if has_issue { "status-bad" } else { "status-good" };
+            let status_class = if has_issue {
+                "status-bad"
+            } else {
+                "status-good"
+            };
             let status_icon = if has_issue { "✗" } else { "✓" };
 
             let version = provider
@@ -1221,9 +1236,7 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{
-        AnalysisResult, Constraint, ModuleSource, RuntimeRef, RuntimeSource,
-    };
+    use crate::types::{AnalysisResult, Constraint, ModuleSource, RuntimeRef, RuntimeSource};
     use std::path::PathBuf;
 
     fn create_test_result() -> ScanResult {

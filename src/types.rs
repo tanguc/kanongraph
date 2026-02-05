@@ -6,13 +6,11 @@
 //! - Analysis results and findings
 //! - Report formats and severity levels
 
-use crate::MonPhareError;
 use crate::graph::DependencyGraph;
+use crate::MonPhareError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing_error::SpanTrace;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 use std::path::PathBuf;
 
 /// Represents a Terraform/OpenTofu module reference.
@@ -184,7 +182,12 @@ impl ModuleSource {
                 name,
                 provider,
             } => format!("{hostname}/{namespace}/{name}/{provider}"),
-            Self::Git { host,url, ref_, subdir } => {
+            Self::Git {
+                host,
+                url,
+                ref_,
+                subdir,
+            } => {
                 let mut id = host.clone();
                 if let Some(r) = ref_ {
                     id.push_str(&format!("?ref={r}"));
@@ -291,7 +294,7 @@ impl Constraint {
     ///
     /// Returns an error if the constraint string is invalid.
     pub fn parse(s: &str) -> Result<Self, MonPhareError> {
-        let ranges =  parse_constraint_string(s)?;
+        let ranges = parse_constraint_string(s)?;
 
         Ok(Self {
             raw: s.to_string(),
@@ -368,7 +371,7 @@ impl Constraint {
                 VersionRange::NotEqual(_) => {
                     // NotEqual doesn't affect bounds directly
                 }
-                VersionRange::Pessimistic {version, parts} => {
+                VersionRange::Pessimistic { version, parts } => {
                     // ~> X.Y allows X.Y.* but not X.(Y+1)
                     if *version > min {
                         min = version.clone();
@@ -531,7 +534,12 @@ fn parse_version(s: &str) -> Result<semver::Version, MonPhareError> {
     // Remove any 'v' prefix
     let normalized = normalized.strip_prefix('v').unwrap_or(&normalized);
 
-    semver::Version::parse(normalized).map_err(|e| MonPhareError::VersionParse { version: s.to_string(), source: e, src_path: file!(), src_line: line!() })
+    semver::Version::parse(normalized).map_err(|e| MonPhareError::VersionParse {
+        version: s.to_string(),
+        source: e,
+        src_path: file!(),
+        src_line: line!(),
+    })
 }
 
 /// Calculate the next version (for > constraint).
@@ -612,7 +620,7 @@ impl std::fmt::Display for Severity {
 }
 
 /// Result of scanning and analyzing Terraform/OpenTofu files.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ScanResult {
     /// All discovered module references
     pub modules: Vec<ModuleRef>,
@@ -635,20 +643,6 @@ pub struct ScanResult {
 
     /// Warnings encountered during scanning (e.g., unparseable constraints)
     pub warnings: Vec<ScanWarning>,
-}
-
-impl Default for ScanResult {
-    fn default() -> Self {
-        Self {
-            modules: Vec::new(),
-            providers: Vec::new(),
-            runtimes: Vec::new(),
-            files_scanned: Vec::new(),
-            graph: DependencyGraph::new(),
-            analysis: AnalysisResult::default(),
-            warnings: Vec::new(),
-        }
-    }
 }
 
 impl ScanResult {
@@ -1050,7 +1044,7 @@ mod tests {
         let c = Constraint::parse("~> 1.0").unwrap();
         assert_eq!(c.ranges.len(), 1);
 
-        if let VersionRange::Pessimistic { version, parts} = &c.ranges[0] {
+        if let VersionRange::Pessimistic { version, parts } = &c.ranges[0] {
             assert_eq!(version.major, 1);
             assert_eq!(version.minor, 0);
             assert_eq!(version.patch, 0);
@@ -1064,7 +1058,7 @@ mod tests {
     fn test_constraint_parse_pessimistic_3_parts() {
         let c = Constraint::parse("~> 1.3.59").unwrap();
         assert_eq!(c.ranges.len(), 1);
-        if let VersionRange::Pessimistic { version, parts} = &c.ranges[0] {
+        if let VersionRange::Pessimistic { version, parts } = &c.ranges[0] {
             assert_eq!(version.major, 1);
             assert_eq!(version.minor, 3);
             assert_eq!(version.patch, 59);
@@ -1130,4 +1124,3 @@ mod tests {
         assert!(Severity::Error < Severity::Critical);
     }
 }
-

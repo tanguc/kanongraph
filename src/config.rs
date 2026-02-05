@@ -45,7 +45,7 @@
 //!   blocked_modules: []
 //! ```
 
-use crate::{config, error::{MonPhareError, Result}};
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -181,16 +181,16 @@ impl CacheOptions {
 pub struct GitOptions {
     /// GitHub personal access token
     pub github_token: Option<String>,
-    
+
     /// GitLab personal/group access token
     pub gitlab_token: Option<String>,
-    
+
     /// Azure DevOps personal access token
     pub azure_devops_token: Option<String>,
-    
+
     /// Bitbucket app password
     pub bitbucket_token: Option<String>,
-    
+
     /// Legacy single token (for backward compatibility)
     /// Will be used as fallback if platform-specific tokens are not set
 
@@ -205,7 +205,6 @@ pub struct GitOptions {
 }
 
 impl GitOptions {
-
     /// Get token for a specific VCS platform with auto-detection from environment
     /// and configuration fallback.
     ///
@@ -213,14 +212,15 @@ impl GitOptions {
     /// 1. Platform-specific config value
     /// 2. Environment variable (MPH_{PLATFORM}_TOKEN)
     /// 3. Legacy environment variable (MONPHARE_GIT_TOKEN)
-    #[must_use]
+    ///
+    /// # Errors
+    /// Returns an error if no token is found for the platform.
     pub fn get_token_for_platform(&self, platform: &str) -> Result<String> {
         tracing::debug!(platform = %platform, "Getting token for platform");
 
         // Helper to get non-empty environment variable
-        let get_non_empty_env = |var: &str| -> Option<String> {
-            std::env::var(var).ok().filter(|s| !s.is_empty())
-        };
+        let get_non_empty_env =
+            |var: &str| -> Option<String> { std::env::var(var).ok().filter(|s| !s.is_empty()) };
 
         // 1. Check platform-specific config token
         let config_token = match platform.to_lowercase().as_str() {
@@ -256,9 +256,8 @@ impl GitOptions {
 
         // 3. Fallback to legacy environment variable
         get_non_empty_env("MONPHARE_GIT_TOKEN")
-            .map(|token| {
+            .inspect(|_| {
                 tracing::warn!(platform = %platform, "Using token from legacy MONPHARE_GIT_TOKEN environment variable");
-                token
             })
             .ok_or_else(|| {
                 tracing::error!(platform = %platform, env_var = %env_var_name, "No token found for platform");
@@ -268,27 +267,31 @@ impl GitOptions {
                 })
             })
     }
-    
+
     /// Load tokens from environment variables, updating config values if not set
     pub fn load_from_env(&mut self) {
         if self.github_token.is_none() {
             if let Ok(token) = std::env::var("MPH_GITHUB_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded GitHub token from MPH_GITHUB_TOKEN environment variable");
+                    tracing::debug!(
+                        "Loaded GitHub token from MPH_GITHUB_TOKEN environment variable"
+                    );
                     self.github_token = Some(token);
                 }
             }
         }
-        
+
         if self.gitlab_token.is_none() {
             if let Ok(token) = std::env::var("MPH_GITLAB_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded GitLab token from MPH_GITLAB_TOKEN environment variable");
+                    tracing::debug!(
+                        "Loaded GitLab token from MPH_GITLAB_TOKEN environment variable"
+                    );
                     self.gitlab_token = Some(token);
                 }
             }
         }
-        
+
         if self.azure_devops_token.is_none() {
             if let Ok(token) = std::env::var("MPH_AZURE_DEVOPS_TOKEN") {
                 if !token.is_empty() {
@@ -297,11 +300,13 @@ impl GitOptions {
                 }
             }
         }
-        
+
         if self.bitbucket_token.is_none() {
             if let Ok(token) = std::env::var("MPH_BITBUCKET_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded Bitbucket token from MPH_BITBUCKET_TOKEN environment variable");
+                    tracing::debug!(
+                        "Loaded Bitbucket token from MPH_BITBUCKET_TOKEN environment variable"
+                    );
                     self.bitbucket_token = Some(token);
                 }
             }
@@ -328,7 +333,6 @@ pub struct PoliciesOptions {
 
     /// Custom severity overrides for finding codes.
     pub severity_overrides: HashMap<String, String>,
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -440,7 +444,7 @@ impl Default for Config {
                 bitbucket_token: None, // Legacy token is not needed here
                 branch: None,
                 include_patterns: None,
-                exclude_patterns: None
+                exclude_patterns: None,
             },
             cache: CacheOptions::default(),
             policies: PoliciesOptions {
@@ -471,17 +475,19 @@ impl Config {
         let expanded = expand_env_vars(content);
         tracing::debug!("Expanded environment variables in configuration");
 
-        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| crate::err!(ConfigParse {
-            message: e.to_string(),
-            source: None,
-        }))?;
-        
+        let config: Config = serde_yaml::from_str(&expanded).map_err(|e| {
+            crate::err!(ConfigParse {
+                message: e.to_string(),
+                source: None,
+            })
+        })?;
+
         tracing::debug!(
             exclude_patterns = config.scan.exclude_patterns.len(),
             continue_on_error = config.scan.continue_on_error,
             "Configuration loaded successfully"
         );
-        
+
         Ok(config)
     }
 
@@ -681,7 +687,7 @@ deprecations:
             }
         }
     }
-    
+
     /// Load VCS tokens from environment variables
     /// This should be called after loading config to populate token fields
     pub fn load_vcs_tokens_from_env(&mut self) {
@@ -753,7 +759,10 @@ output:
 "#;
 
         let config = Config::from_yaml(yaml).unwrap();
-        assert!(config.scan.exclude_patterns.contains(&"**/vendor/**".to_string()));
+        assert!(config
+            .scan
+            .exclude_patterns
+            .contains(&"**/vendor/**".to_string()));
         assert!(config.scan.continue_on_error);
         assert_eq!(config.scan.max_depth, 50);
         assert!(!config.analysis.check_exact_versions);
@@ -771,7 +780,10 @@ scan:
 "#;
 
         let config = Config::from_yaml(yaml).unwrap();
-        assert!(config.scan.exclude_patterns.contains(&"**/vendor/**".to_string()));
+        assert!(config
+            .scan
+            .exclude_patterns
+            .contains(&"**/vendor/**".to_string()));
     }
 
     #[test]
@@ -869,36 +881,122 @@ deprecations:
         severity: error
         replacement: ">= 4.0.0" 
     "#;
-    let config = Config::from_yaml(yaml).unwrap();
+        let config = Config::from_yaml(yaml).unwrap();
 
-    assert_eq!(config.deprecations.runtime.len(), 1);
-    assert_eq!(config.deprecations.runtime.get("terraform").unwrap().len(), 1);
-    assert_eq!(
-        config.deprecations.runtime.get("terraform").unwrap()[0].version,
-        Some("< 0.13.0".to_string())
-    );
-    assert_eq!(config.deprecations.runtime.get("terraform").unwrap()[0].reason, "Legacy Terraform version, migrate to v0.13.0 or later");
-    assert_eq!(config.deprecations.runtime.get("terraform").unwrap()[0].severity, "error");
-    assert_eq!(config.deprecations.runtime.get("terraform").unwrap()[0].replacement, ">= 0.13.0");
+        assert_eq!(config.deprecations.runtime.len(), 1);
+        assert_eq!(
+            config.deprecations.runtime.get("terraform").unwrap().len(),
+            1
+        );
+        assert_eq!(
+            config.deprecations.runtime.get("terraform").unwrap()[0].version,
+            Some("< 0.13.0".to_string())
+        );
+        assert_eq!(
+            config.deprecations.runtime.get("terraform").unwrap()[0].reason,
+            "Legacy Terraform version, migrate to v0.13.0 or later"
+        );
+        assert_eq!(
+            config.deprecations.runtime.get("terraform").unwrap()[0].severity,
+            "error"
+        );
+        assert_eq!(
+            config.deprecations.runtime.get("terraform").unwrap()[0].replacement,
+            ">= 0.13.0"
+        );
 
-    assert_eq!(config.deprecations.modules.len(), 1);
-    assert_eq!(config.deprecations.modules.get("foobar/bar-module/azurerm").unwrap().len(), 1);
-    assert_eq!(
-        config.deprecations.modules.get("foobar/bar-module/azurerm").unwrap()[0].version,
-        Some("< 2.0.0".to_string())
-    );
-    assert_eq!(config.deprecations.modules.get("foobar/bar-module/azurerm").unwrap()[0].reason, "Legacy module version, migrate to v2.0.0 or later");
-    assert_eq!(config.deprecations.modules.get("foobar/bar-module/azurerm").unwrap()[0].severity, "error");
-    assert_eq!(config.deprecations.modules.get("foobar/bar-module/azurerm").unwrap()[0].replacement, ">= 2.0.0");
+        assert_eq!(config.deprecations.modules.len(), 1);
+        assert_eq!(
+            config
+                .deprecations
+                .modules
+                .get("foobar/bar-module/azurerm")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .modules
+                .get("foobar/bar-module/azurerm")
+                .unwrap()[0]
+                .version,
+            Some("< 2.0.0".to_string())
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .modules
+                .get("foobar/bar-module/azurerm")
+                .unwrap()[0]
+                .reason,
+            "Legacy module version, migrate to v2.0.0 or later"
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .modules
+                .get("foobar/bar-module/azurerm")
+                .unwrap()[0]
+                .severity,
+            "error"
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .modules
+                .get("foobar/bar-module/azurerm")
+                .unwrap()[0]
+                .replacement,
+            ">= 2.0.0"
+        );
 
-    assert_eq!(config.deprecations.providers.len(), 1);
-    assert_eq!(config.deprecations.providers.get("hashicorp/azurerm").unwrap().len(), 1);
-    assert_eq!(
-        config.deprecations.providers.get("hashicorp/azurerm").unwrap()[0].version,
-        Some("< 4.0.0".to_string())
-    );
-    assert_eq!(config.deprecations.providers.get("hashicorp/azurerm").unwrap()[0].reason, "Legacy provider version, migrate to v4.0.0 or later");
-    assert_eq!(config.deprecations.providers.get("hashicorp/azurerm").unwrap()[0].severity, "error");
-    assert_eq!(config.deprecations.providers.get("hashicorp/azurerm").unwrap()[0].replacement, ">= 4.0.0");
+        assert_eq!(config.deprecations.providers.len(), 1);
+        assert_eq!(
+            config
+                .deprecations
+                .providers
+                .get("hashicorp/azurerm")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .providers
+                .get("hashicorp/azurerm")
+                .unwrap()[0]
+                .version,
+            Some("< 4.0.0".to_string())
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .providers
+                .get("hashicorp/azurerm")
+                .unwrap()[0]
+                .reason,
+            "Legacy provider version, migrate to v4.0.0 or later"
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .providers
+                .get("hashicorp/azurerm")
+                .unwrap()[0]
+                .severity,
+            "error"
+        );
+        assert_eq!(
+            config
+                .deprecations
+                .providers
+                .get("hashicorp/azurerm")
+                .unwrap()[0]
+                .replacement,
+            ">= 4.0.0"
+        );
     }
 }

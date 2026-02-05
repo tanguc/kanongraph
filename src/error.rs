@@ -425,55 +425,97 @@ pub enum MonPhareError {
 impl MonPhareError {
     /// Creates an `Io` error.
     #[must_use]
-    pub fn io(path: impl Into<PathBuf>, source: std::io::Error, src_path: &'static str, src_line: u32) -> Self {
-        Self::Io { path: path.into(), source, src_path, src_line }
+    pub fn io(
+        path: impl Into<PathBuf>,
+        source: std::io::Error,
+        src_path: &'static str,
+        src_line: u32,
+    ) -> Self {
+        Self::Io {
+            path: path.into(),
+            source,
+            src_path,
+            src_line,
+        }
     }
 
     /// Creates an `HclParse` error.
     #[must_use]
-    pub fn hcl_parse(file: PathBuf, message: String, line: Option<usize>, column: Option<usize>, src_path: &'static str, src_line: u32) -> Self {
-        Self::HclParse { file, message, line, column, src_path, src_line }
+    pub fn hcl_parse(
+        file: PathBuf,
+        message: String,
+        line: Option<usize>,
+        column: Option<usize>,
+        src_path: &'static str,
+        src_line: u32,
+    ) -> Self {
+        Self::HclParse {
+            file,
+            message,
+            line,
+            column,
+            src_path,
+            src_line,
+        }
     }
 
     /// Creates a `Git` error.
     #[must_use]
     pub fn git(message: String, src_path: &'static str, src_line: u32) -> Self {
-        Self::Git { message, src_path, src_line }
+        Self::Git {
+            message,
+            src_path,
+            src_line,
+        }
     }
 
     /// Creates a `ConfigParse` error.
     #[must_use]
-    pub fn config_parse(message: String, source: Option<Box<dyn std::error::Error + Send + Sync>>, src_path: &'static str, src_line: u32) -> Self {
-        Self::ConfigParse { message, source, src_path, src_line }
+    pub fn config_parse(
+        message: String,
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        src_path: &'static str,
+        src_line: u32,
+    ) -> Self {
+        Self::ConfigParse {
+            message,
+            source,
+            src_path,
+            src_line,
+        }
     }
 
     /// Creates an `Internal` error.
     #[must_use]
     pub fn internal(message: String, src_path: &'static str, src_line: u32) -> Self {
-        Self::Internal { message, src_path, src_line }
+        Self::Internal {
+            message,
+            src_path,
+            src_line,
+        }
     }
 
     /// Determines if the error is recoverable (e.g., should continue scanning other repositories).
     #[must_use]
     pub fn is_recoverable(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::GitClone { .. }
-            | Self::GitAuth { .. }
-            | Self::InvalidGitUrl { .. }
-            | Self::UnsupportedGitProvider { .. }
-            | Self::HclParse { .. }
-            | Self::HclStructure { .. }
-            | Self::ModuleSourceParse { .. }
-            | Self::VersionParse { .. }
-            | Self::ConstraintParse { .. }
-            | Self::ConfigParse { .. }
-            | Self::ConfigValue { .. }
-            | Self::ConfigMissing { .. }
-            | Self::Http { .. }
-            | Self::Timeout { .. }
-            | Self::VcsApi { .. } => true,
-            _ => false,
-        }
+                | Self::GitAuth { .. }
+                | Self::InvalidGitUrl { .. }
+                | Self::UnsupportedGitProvider { .. }
+                | Self::HclParse { .. }
+                | Self::HclStructure { .. }
+                | Self::ModuleSourceParse { .. }
+                | Self::VersionParse { .. }
+                | Self::ConstraintParse { .. }
+                | Self::ConfigParse { .. }
+                | Self::ConfigValue { .. }
+                | Self::ConfigMissing { .. }
+                | Self::Http { .. }
+                | Self::Timeout { .. }
+                | Self::VcsApi { .. }
+        )
     }
 
     /// Returns the appropriate exit code for the error.
@@ -491,7 +533,7 @@ impl MonPhareError {
             Self::ConfigMissing { .. } => 20,
             Self::Multiple { .. } => 21,
             Self::VcsApi { .. } => 22, // New exit code for VCS API errors
-            _ => 1, // Generic unhandled error
+            _ => 1,                    // Generic unhandled error
         }
     }
 
@@ -517,7 +559,13 @@ pub trait ResultExt<T, E> {
     fn with_path(self, path: impl Into<PathBuf>) -> Result<T>;
 
     /// Converts a general error into an `HclParse` error with context.
-    fn to_hcl_parse_error(self, file: impl Into<PathBuf>, message: String, line: Option<usize>, column: Option<usize>) -> Result<T>;
+    fn to_hcl_parse_error(
+        self,
+        file: impl Into<PathBuf>,
+        message: String,
+        line: Option<usize>,
+        column: Option<usize>,
+    ) -> Result<T>;
 
     /// Converts a general error into a `Git` error with context.
     fn to_git_error(self, message: String) -> Result<T>;
@@ -533,16 +581,25 @@ where
     fn with_path(self, path: impl Into<PathBuf>) -> Result<T> {
         self.map_err(|e| MonPhareError::Io {
             path: path.into(),
-            source: *e.into().downcast::<std::io::Error>().unwrap_or_else(|e| {
-                Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
-            }),
+            source: *e
+                .into()
+                .downcast::<std::io::Error>()
+                .unwrap_or_else(|e| Box::new(std::io::Error::other(e))),
             src_path: file!(),
             src_line: line!(),
         })
     }
 
-    fn to_hcl_parse_error(self, file: impl Into<PathBuf>, message: String, line: Option<usize>, column: Option<usize>) -> Result<T> {
-        self.map_err(|_| MonPhareError::hcl_parse(file.into(), message, line, column, file!(), line!()))
+    fn to_hcl_parse_error(
+        self,
+        file: impl Into<PathBuf>,
+        message: String,
+        line: Option<usize>,
+        column: Option<usize>,
+    ) -> Result<T> {
+        self.map_err(|_| {
+            MonPhareError::hcl_parse(file.into(), message, line, column, file!(), line!())
+        })
     }
 
     fn to_git_error(self, message: String) -> Result<T> {
@@ -571,7 +628,7 @@ impl From<std::io::Error> for MonPhareError {
 impl From<serde_json::Error> for MonPhareError {
     fn from(source: serde_json::Error) -> Self {
         Self::Internal {
-            message: format!("JSON serialization/deserialization error: {}", source),
+            message: format!("JSON serialization/deserialization error: {source}"),
             src_path: file!(),
             src_line: line!(),
         }
@@ -613,4 +670,3 @@ impl ErrorCollector {
         MonPhareError::collect(self.errors)
     }
 }
-

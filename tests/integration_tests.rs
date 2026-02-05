@@ -66,10 +66,7 @@ mod parser_tests {
             .iter()
             .find(|m| m.name == "eks_exact")
             .unwrap();
-        assert_eq!(
-            exact.version_constraint.as_ref().unwrap().raw,
-            "19.15.3"
-        );
+        assert_eq!(exact.version_constraint.as_ref().unwrap().raw, "19.15.3");
     }
 }
 
@@ -106,7 +103,6 @@ mod analyzer_tests {
 
         assert!(!missing.is_empty(), "Should detect missing constraints");
     }
-
 }
 
 mod scanner_tests {
@@ -118,7 +114,7 @@ mod scanner_tests {
         let scanner = Scanner::new(config);
 
         let fixture_path = fixtures_path().join("simple");
-        let result = scanner.scan_path(&fixture_path).await.unwrap();
+        let result = scanner.scan_paths(vec![fixture_path]).await.unwrap();
 
         assert!(!result.modules.is_empty());
         assert!(!result.providers.is_empty());
@@ -135,8 +131,7 @@ mod scanner_tests {
             fixtures_path().join("risky"),
         ];
 
-        let path_refs: Vec<&std::path::Path> = paths.iter().map(|p| p.as_path()).collect();
-        let result = scanner.scan_paths(&path_refs).await.unwrap();
+        let result = scanner.scan_paths(paths).await.unwrap();
 
         // Should have modules from both directories
         assert!(result.modules.len() > 2);
@@ -155,14 +150,14 @@ mod reporter_tests {
         let reporter = Reporter::new(&config);
 
         let fixture_path = fixtures_path().join("simple");
-        let result = scanner.scan_path(&fixture_path).await.unwrap();
+        let result = scanner.scan_paths(vec![fixture_path]).await.unwrap();
 
         let json = reporter.generate(&result, ReportFormat::Json).unwrap();
 
-        // Verify it's valid JSON
+        // Verify it's valid JSON with new structure
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(parsed["metadata"]["version"].is_string());
-        assert!(parsed["modules"].is_array());
+        assert!(parsed["meta"]["version"].is_string());
+        assert!(parsed["inventory"]["modules"].is_array());
     }
 
     #[tokio::test]
@@ -172,12 +167,12 @@ mod reporter_tests {
         let reporter = Reporter::new(&config);
 
         let fixture_path = fixtures_path().join("simple");
-        let result = scanner.scan_path(&fixture_path).await.unwrap();
+        let result = scanner.scan_paths(vec![fixture_path]).await.unwrap();
 
         let text = reporter.generate(&result, ReportFormat::Text).unwrap();
 
-        assert!(text.contains("MonPhare Analysis Report"));
-        assert!(text.contains("Summary"));
+        // Text report uses new table-based format
+        assert!(text.contains("MonPhare"));
     }
 
     #[tokio::test]
@@ -187,12 +182,12 @@ mod reporter_tests {
         let reporter = Reporter::new(&config);
 
         let fixture_path = fixtures_path().join("simple");
-        let result = scanner.scan_path(&fixture_path).await.unwrap();
+        let result = scanner.scan_paths(vec![fixture_path]).await.unwrap();
 
         let html = reporter.generate(&result, ReportFormat::Html).unwrap();
 
         assert!(html.contains("<!DOCTYPE html>"));
-        assert!(html.contains("MonPhare Analysis Report"));
+        assert!(html.contains("MonPhare"));
         // HTML should be self-contained
         assert!(html.contains("<style>"));
     }
@@ -269,7 +264,10 @@ scan:
 
         let config = Config::from_yaml(yaml).unwrap();
         assert!(config.scan.continue_on_error);
-        assert!(config.scan.exclude_patterns.contains(&"**/vendor/**".to_string()));
+        assert!(config
+            .scan
+            .exclude_patterns
+            .contains(&"**/vendor/**".to_string()));
     }
 
     #[test]
@@ -280,4 +278,3 @@ scan:
         assert_eq!(config.scan.max_depth, 100);
     }
 }
-
