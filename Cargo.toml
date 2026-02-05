@@ -2,7 +2,7 @@
 name = "monphare"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.82"
 authors = ["MonPhare Team"]
 description = "Terraform/OpenTofu module constraint analyzer and dependency mapper"
 license = "MIT"
@@ -46,7 +46,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Git operations
-git2 = "0.18"
+git2 = "0.20"
 
 # HTTP client for API calls and Git provider integration
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
