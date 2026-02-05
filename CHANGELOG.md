@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.0 (2026-02-05)
+
+
+### Features
+
+* add repository caching and improve reporters ([2444a89](https://github.com/tanguc/MonPhare/commit/2444a89b387d8bec9b68984f223a3cf9f0728994))
+* **error:** add source location tracking to errors ([a545154](https://github.com/tanguc/MonPhare/commit/a545154ed51d871ec37bf7ab8de232da57dc5111))
+* initial commit ([8eb103d](https://github.com/tanguc/MonPhare/commit/8eb103d897da66c1f8093c80fe27c7a6e0269188))
+* remove phase 1 & phase 2 feature ([87956d7](https://github.com/tanguc/MonPhare/commit/87956d761c74c8705072adc578b39d41ca1e1edb))
+
+
+### Bug Fixes
+
+* bump MSRV to 1.85 for edition 2024 dependency (comfy-table) ([b2edfc1](https://github.com/tanguc/MonPhare/commit/b2edfc12a4bc3a65be4eb91b47b2ba336b15d56e))
+* iter ([0c1164e](https://github.com/tanguc/MonPhare/commit/0c1164e27088d5ad7f61966f917b7566b875dd4f))
+* resolve CI failures with clippy, formatting, and tests ([41938d9](https://github.com/tanguc/MonPhare/commit/41938d98ab9b3b232eb0363958ad9db747d743f8))
+* simplify CI test matrix and fix security audit ([eb444b0](https://github.com/tanguc/MonPhare/commit/eb444b068a355e41087add5f7a061193aaa7d645))
+* update dependencies and MSRV for CI compatibility ([5e9df40](https://github.com/tanguc/MonPhare/commit/5e9df409e06a180f02fd27506f2c6203791a8109))
+
 ## [Unreleased]
 
 ### Features
