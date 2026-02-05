@@ -105,6 +105,76 @@ pub struct OutputOptions {
     pub pretty: bool,
 }
 
+/// Cache options for repository cloning.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CacheOptions {
+    /// Enable repository caching (default: true)
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Cache directory path (default: ~/.cache/monphare/repos)
+    /// Supports environment variable expansion
+    pub directory: Option<String>,
+
+    /// Time-to-live in hours for cached repositories (default: 24)
+    /// After this time, the cache entry will be refreshed on next access
+    #[serde(default = "default_cache_ttl")]
+    pub ttl_hours: u64,
+
+    /// Fresh threshold in minutes (default: 5)
+    /// If cache was updated within this time, skip fetching entirely
+    #[serde(default = "default_fresh_threshold")]
+    pub fresh_threshold_minutes: u64,
+
+    /// Maximum cache size in MB (default: 1000 = 1GB)
+    /// Oldest entries will be evicted when exceeded
+    #[serde(default = "default_cache_max_size")]
+    pub max_size_mb: u64,
+}
+
+fn default_cache_ttl() -> u64 {
+    24 // 24 hours
+}
+
+fn default_fresh_threshold() -> u64 {
+    5 // 5 minutes
+}
+
+fn default_cache_max_size() -> u64 {
+    1000 // 1GB
+}
+
+impl Default for CacheOptions {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            directory: None,
+            ttl_hours: default_cache_ttl(),
+            fresh_threshold_minutes: default_fresh_threshold(),
+            max_size_mb: default_cache_max_size(),
+        }
+    }
+}
+
+impl CacheOptions {
+    /// Get the cache directory path, with environment variable expansion.
+    /// Returns the configured directory or the default ~/.cache/monphare/repos
+    #[must_use]
+    pub fn get_cache_dir(&self) -> std::path::PathBuf {
+        if let Some(dir) = &self.directory {
+            let expanded = expand_env_vars(dir);
+            std::path::PathBuf::from(expanded)
+        } else {
+            // Default to ~/.cache/monphare/repos
+            dirs::cache_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+                .join("monphare")
+                .join("repos")
+        }
+    }
+}
+
 /// Git options.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -141,7 +211,7 @@ impl GitOptions {
     ///
     /// Priority order:
     /// 1. Platform-specific config value
-    /// 2. Environment variable (DO_{PLATFORM}_TOKEN)
+    /// 2. Environment variable (MPH_{PLATFORM}_TOKEN)
     /// 3. Legacy environment variable (MONPHARE_GIT_TOKEN)
     #[must_use]
     pub fn get_token_for_platform(&self, platform: &str) -> Result<String> {
@@ -172,10 +242,10 @@ impl GitOptions {
 
         // 2. Check platform-specific environment variable
         let env_var_name = match platform.to_lowercase().as_str() {
-            "github" => "DO_GITHUB_TOKEN",
-            "gitlab" => "DO_GITLAB_TOKEN",
-            "ado" | "azure" | "azure-devops" => "DO_AZURE_DEVOPS_TOKEN",
-            "bitbucket" => "DO_BITBUCKET_TOKEN",
+            "github" => "MPH_GITHUB_TOKEN",
+            "gitlab" => "MPH_GITLAB_TOKEN",
+            "ado" | "azure" | "azure-devops" => "MPH_AZURE_DEVOPS_TOKEN",
+            "bitbucket" => "MPH_BITBUCKET_TOKEN",
             _ => unreachable!(), // Already handled above
         };
 
@@ -202,36 +272,36 @@ impl GitOptions {
     /// Load tokens from environment variables, updating config values if not set
     pub fn load_from_env(&mut self) {
         if self.github_token.is_none() {
-            if let Ok(token) = std::env::var("DO_GITHUB_TOKEN") {
+            if let Ok(token) = std::env::var("MPH_GITHUB_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded GitHub token from DO_GITHUB_TOKEN environment variable");
+                    tracing::debug!("Loaded GitHub token from MPH_GITHUB_TOKEN environment variable");
                     self.github_token = Some(token);
                 }
             }
         }
         
         if self.gitlab_token.is_none() {
-            if let Ok(token) = std::env::var("DO_GITLAB_TOKEN") {
+            if let Ok(token) = std::env::var("MPH_GITLAB_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded GitLab token from DO_GITLAB_TOKEN environment variable");
+                    tracing::debug!("Loaded GitLab token from MPH_GITLAB_TOKEN environment variable");
                     self.gitlab_token = Some(token);
                 }
             }
         }
         
         if self.azure_devops_token.is_none() {
-            if let Ok(token) = std::env::var("DO_AZURE_DEVOPS_TOKEN") {
+            if let Ok(token) = std::env::var("MPH_AZURE_DEVOPS_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded Azure DevOps token from DO_AZURE_DEVOPS_TOKEN environment variable");
+                    tracing::debug!("Loaded Azure DevOps token from MPH_AZURE_DEVOPS_TOKEN environment variable");
                     self.azure_devops_token = Some(token);
                 }
             }
         }
         
         if self.bitbucket_token.is_none() {
-            if let Ok(token) = std::env::var("DO_BITBUCKET_TOKEN") {
+            if let Ok(token) = std::env::var("MPH_BITBUCKET_TOKEN") {
                 if !token.is_empty() {
-                    tracing::debug!("Loaded Bitbucket token from DO_BITBUCKET_TOKEN environment variable");
+                    tracing::debug!("Loaded Bitbucket token from MPH_BITBUCKET_TOKEN environment variable");
                     self.bitbucket_token = Some(token);
                 }
             }
@@ -316,6 +386,9 @@ pub struct Config {
     /// Git options
     pub git: GitOptions,
 
+    /// Cache options for repository cloning
+    pub cache: CacheOptions,
+
     /// Policy rules
     pub policies: PoliciesOptions,
 
@@ -369,6 +442,7 @@ impl Default for Config {
                 include_patterns: None,
                 exclude_patterns: None
             },
+            cache: CacheOptions::default(),
             policies: PoliciesOptions {
                 require_version_constraint: true,
                 require_upper_bound: false,
@@ -465,6 +539,20 @@ git:
   # Branch to checkout (default: repository's default branch)
   # branch: main
 
+# Cache options - avoid unnecessary re-clones
+cache:
+  # Enable repository caching (default: true)
+  enabled: true
+  
+  # Cache directory (default: ~/.cache/monphare/repos)
+  # directory: ${HOME}/.cache/monphare/repos
+  
+  # Time-to-live in hours (default: 24)
+  ttl_hours: 24
+  
+  # Maximum cache size in MB (default: 1000 = 1GB)
+  max_size_mb: 1000
+
 # Policy rules
 policies:
   # Require version constraints on all modules
@@ -484,8 +572,8 @@ policies:
 
   # Severity overrides for specific finding codes
   # severity_overrides:
-  #   DRIFT002: info  # Downgrade missing constraint to info
-  #   DRIFT003: error  # Upgrade wildcard to error
+  #   missing-version: info  # Downgrade missing constraint to info
+  #   wildcard-constraint: error  # Upgrade wildcard to error
 
 deprecations:
   # runtime:
@@ -743,17 +831,17 @@ policies:
         let yaml = r#"
 policies:
   severity_overrides:
-    DRIFT001: warning
-    DRIFT002: info
+    missing-version: warning
+    broad-constraint: info
 "#;
 
         let config = Config::from_yaml(yaml).unwrap();
         assert_eq!(
-            config.policies.severity_overrides.get("DRIFT001"),
+            config.policies.severity_overrides.get("missing-version"),
             Some(&"warning".to_string())
         );
         assert_eq!(
-            config.policies.severity_overrides.get("DRIFT002"),
+            config.policies.severity_overrides.get("broad-constraint"),
             Some(&"info".to_string())
         );
     }

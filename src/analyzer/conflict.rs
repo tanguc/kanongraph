@@ -146,10 +146,14 @@ impl Analyzer {
 
         // Check modules
         for module in modules {
+            if module.source.is_local() {
+                tracing::trace!(module = %module.name, "Local module, skipping constraint check");
+                continue;
+            }
             if module.version_constraint.is_none() && !module.source.is_local() {
                 findings.push(Finding {
-                    code: "DRIFT002".to_string(),
-                    severity: Severity::Warning,
+                    code: "missing-version".to_string(),
+                    severity: Severity::Error,
                     message: format!(
                         "Module '{}' has no version constraint",
                         module.name
@@ -178,8 +182,8 @@ impl Analyzer {
         for provider in providers {
             if provider.version_constraint.is_none() {
                 findings.push(Finding {
-                    code: "DRIFT002".to_string(),
-                    severity: Severity::Warning,
+                    code: "missing-version".to_string(),
+                    severity: Severity::Error,
                     message: format!(
                         "Provider '{}' has no version constraint",
                         provider.name
@@ -217,6 +221,10 @@ impl Analyzer {
 
         // Check modules
         for module in modules {
+            if module.source.is_local() {
+                tracing::trace!(module = %module.name, "Local module, skipping risky pattern check");
+                continue;
+            }
             if let Some(constraint) = &module.version_constraint {
                 for pattern in self.pattern_checker.check(&constraint.raw) {
                     findings.push(self.pattern_to_finding(
@@ -258,10 +266,14 @@ impl Analyzer {
 
         // Check modules
         for module in modules {
+            if module.source.is_local() {
+                tracing::trace!(module = %module.name, "Local module, skipping broad constraint check");
+                continue;
+            }
             if let Some(constraint) = &module.version_constraint {
                 if constraint.is_overly_broad() {
                     findings.push(Finding {
-                        code: "DRIFT004".to_string(),
+                        code: "broad-constraint".to_string(),
                         severity: Severity::Warning,
                         message: format!(
                             "Module '{}' has overly broad constraint: {}",
@@ -294,7 +306,7 @@ impl Analyzer {
             if let Some(constraint) = &provider.version_constraint {
                 if constraint.is_overly_broad() {
                     findings.push(Finding {
-                        code: "DRIFT004".to_string(),
+                        code: "broad-constraint".to_string(),
                         severity: Severity::Warning,
                         message: format!(
                             "Provider '{}' has overly broad constraint: {}",
@@ -336,28 +348,28 @@ impl Analyzer {
     ) -> Finding {
         let (code, severity, message, description, suggestion) = match pattern {
             RiskyPattern::Wildcard => (
-                "DRIFT003",
+                "wildcard-constraint",
                 Severity::Warning,
                 format!("'{name}' uses wildcard version constraint"),
                 "Wildcard constraints like '*' allow any version and should be avoided.",
                 "Replace with a specific constraint like '~> 1.0'",
             ),
             RiskyPattern::PreRelease => (
-                "DRIFT005",
+                "prerelease-version",
                 Severity::Info,
                 format!("'{name}' uses pre-release version"),
                 "Pre-release versions may be unstable and are not recommended for production.",
                 "Consider using a stable release version",
             ),
             RiskyPattern::ExactVersion => (
-                "DRIFT006",
+                "exact-version",
                 Severity::Info,
                 format!("'{name}' uses exact version constraint"),
                 "Exact version constraints prevent automatic patch updates.",
                 "Consider using '~> X.Y.0' to allow patch updates",
             ),
             RiskyPattern::NoUpperBound => (
-                "DRIFT007",
+                "no-upper-bound",
                 Severity::Warning,
                 format!("'{name}' has no upper bound on version"),
                 "Constraints without upper bounds may allow breaking changes.",

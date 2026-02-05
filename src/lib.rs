@@ -131,6 +131,7 @@ impl Scanner {
         let mut all_providers = Vec::new();
         let mut all_runtimes = Vec::new();
         let mut all_files = Vec::new();
+        let mut all_warnings = Vec::new();
 
         for path in paths {
             let path = path;
@@ -141,6 +142,7 @@ impl Scanner {
             all_modules.extend(parsed.modules);
             all_providers.extend(parsed.providers);
             all_files.extend(parsed.files);
+            all_warnings.extend(parsed.warnings);
         }
 
         // Build dependency graph
@@ -155,6 +157,7 @@ impl Scanner {
             modules = all_modules.len(),
             providers = all_providers.len(),
             runtimes = all_runtimes.len(),
+            warnings = all_warnings.len(),
             "Analysis completed"
         );
 
@@ -165,6 +168,7 @@ impl Scanner {
             files_scanned: all_files,
             graph: dependency_graph,
             analysis,
+            warnings: all_warnings,
         })
     }
 

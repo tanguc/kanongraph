@@ -168,60 +168,52 @@ monphare/
 
 ## 🔬 Finding Types
 
-### DRIFT001 - Version Constraint Conflict
-
-Two modules or providers require incompatible versions.
-
-```
-[ERROR] DRIFT001: Version constraint conflict for 'hashicorp/aws': '>= 5.0' vs '<= 4.5'
-```
-
-### DRIFT002 - Missing Version Constraint
+### missing-version
 
 A module or provider has no version constraint specified.
 
 ```
-[WARNING] DRIFT002: Module 'vpc' has no version constraint
+[ERROR] missing-version: Module 'vpc' has no version constraint
 ```
 
-### DRIFT003 - Wildcard Constraint
+### wildcard-constraint
 
 A constraint uses wildcards (`*`).
 
 ```
-[WARNING] DRIFT003: 'my-module' uses wildcard version constraint
+[WARNING] wildcard-constraint: 'my-module' uses wildcard version constraint
 ```
 
-### DRIFT004 - Overly Broad Constraint
+### broad-constraint
 
 A constraint is too permissive (e.g., `>= 0.0.0`).
 
 ```
-[WARNING] DRIFT004: Module 'vpc' has overly broad constraint: >= 0.0.0
+[WARNING] broad-constraint: Module 'vpc' has overly broad constraint: >= 0.0.0
 ```
 
-### DRIFT005 - Pre-release Version
+### prerelease-version
 
 A constraint references a pre-release version.
 
 ```
-[INFO] DRIFT005: 'my-module' uses pre-release version
+[INFO] prerelease-version: 'my-module' uses pre-release version
 ```
 
-### DRIFT006 - Exact Version Constraint
+### exact-version
 
 An exact version constraint prevents automatic updates.
 
 ```
-[INFO] DRIFT006: 'eks' uses exact version constraint
+[INFO] exact-version: 'eks' uses exact version constraint
 ```
 
-### DRIFT007 - No Upper Bound
+### no-upper-bound
 
 A constraint has no upper bound, allowing breaking changes.
 
 ```
-[WARNING] DRIFT007: 'my-module' has no upper bound on version
+[WARNING] no-upper-bound: 'my-module' has no upper bound on version
 ```
 
 ## 📊 Example Output
@@ -245,13 +237,13 @@ Generated: 2024-01-15 10:30:00
 🔍 Findings
 ----------------------------------------
 
-  [ERROR] Version constraint conflict for 'terraform-aws-modules/vpc/aws' (DRIFT001)
+  [ERROR] Version constraint conflict for 'terraform-aws-modules/vpc/aws'
     → repo-a/main.tf:10
     → repo-b/main.tf:5
     The constraints '>= 5.0' and '<= 4.0' have no overlapping versions.
     💡 Consider aligning the constraints.
 
-  [WARNING] Module 'eks' has no version constraint (DRIFT002)
+  [ERROR] Module 'eks' has no version constraint (missing-version)
     → main.tf:25
     💡 Add a version constraint, e.g., version = "~> 1.0"
 

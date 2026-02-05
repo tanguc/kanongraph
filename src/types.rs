@@ -632,6 +632,9 @@ pub struct ScanResult {
 
     /// Analysis results
     pub analysis: AnalysisResult,
+
+    /// Warnings encountered during scanning (e.g., unparseable constraints)
+    pub warnings: Vec<ScanWarning>,
 }
 
 impl Default for ScanResult {
@@ -643,6 +646,7 @@ impl Default for ScanResult {
             files_scanned: Vec::new(),
             graph: DependencyGraph::new(),
             analysis: AnalysisResult::default(),
+            warnings: Vec::new(),
         }
     }
 }
@@ -652,9 +656,11 @@ impl ScanResult {
     pub fn merge(&mut self, other: Self) {
         self.modules.extend(other.modules);
         self.providers.extend(other.providers);
+        self.runtimes.extend(other.runtimes);
         self.files_scanned.extend(other.files_scanned);
         self.graph.merge(other.graph);
         self.analysis.merge(other.analysis);
+        self.warnings.extend(other.warnings);
     }
 
     /// Generate a report in the specified format.
@@ -983,6 +989,25 @@ impl VcsIdentifier {
         }
     }
 }
+
+/// A warning generated during scanning (e.g., unparseable version constraint).
+///
+/// Warnings represent issues that don't prevent scanning from continuing,
+/// but should be reported to the user.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanWarning {
+    /// Short warning code (e.g., "unparseable-constraint")
+    pub code: String,
+    /// Human-readable message
+    pub message: String,
+    /// File where the issue occurred
+    pub file: PathBuf,
+    /// Line number (if available)
+    pub line: Option<usize>,
+    /// The repository this occurred in
+    pub repository: Option<String>,
+}
+
 /// Parsed HCL file contents.
 #[derive(Debug, Clone, Default)]
 pub struct ParsedHcl {
@@ -992,9 +1017,10 @@ pub struct ParsedHcl {
     pub providers: Vec<ProviderRef>,
     /// Files that were parsed
     pub files: Vec<PathBuf>,
-
     /// Runtimes found in this file
     pub runtimes: Vec<RuntimeRef>,
+    /// Warnings encountered during parsing (e.g., unparseable constraints)
+    pub warnings: Vec<ScanWarning>,
 }
 
 impl ParsedHcl {
@@ -1003,6 +1029,8 @@ impl ParsedHcl {
         self.modules.extend(other.modules);
         self.providers.extend(other.providers);
         self.files.extend(other.files);
+        self.runtimes.extend(other.runtimes);
+        self.warnings.extend(other.warnings);
     }
 }
 

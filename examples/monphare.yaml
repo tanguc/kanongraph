@@ -58,6 +58,30 @@ git:
   # Branch to checkout (default: repository's default branch)
   # branch: main
 
+# Cache options - avoid unnecessary re-clones
+cache:
+  # Enable repository caching (default: true)
+  # When enabled, repositories are cached locally and only fetched
+  # when changes are detected, significantly speeding up repeat scans
+  enabled: true
+  
+  # Cache directory path (default: ~/.cache/monphare/repos)
+  # Supports environment variable expansion
+  # directory: ${HOME}/.cache/monphare/repos
+  
+  # Time-to-live in hours for cached repositories (default: 24)
+  # After this time, the cache will be refreshed on next access
+  ttl_hours: 24
+  
+  # Fresh threshold in minutes (default: 5)
+  # If cache was updated within this time, skip fetching entirely
+  # Set to 0 to always check for updates
+  fresh_threshold_minutes: 5
+  
+  # Maximum cache size in MB (default: 1000 = 1GB)
+  # Oldest entries will be evicted when exceeded
+  max_size_mb: 1000
+
 # Policy rules - customize these based on your organization's standards
 policies:
   # Require version constraints on all modules
@@ -143,7 +167,7 @@ deprecations:
 # Severity overrides for specific finding codes
 # Use this to customize severity based on your needs
 # severity_overrides:
-#   DRIFT002: info      # Downgrade missing constraint to info
-#   DRIFT003: error     # Upgrade wildcard to error
-#   DRIFT006: warning   # Upgrade exact version to warning
+#   missing-version: info      # Downgrade missing constraint to info
+#   wildcard-constraint: error # Upgrade wildcard to error
+#   exact-version: warning     # Upgrade exact version to warning
 

@@ -1,10 +1,11 @@
 //! Git client implementation.
 //!
 //! Provides a unified interface for cloning repositories from
-//! multiple Git providers.
+//! multiple Git providers, with smart caching to avoid unnecessary re-clones.
 
 use crate::config::Config;
 use crate::error::{MonPhareError, Result};
+use crate::git::cache::CacheManager;
 use crate::git::providers::{
     AzureDevOpsProvider, BitbucketProvider, GitHubProvider, GitLabProvider, GitProvider,
 };
@@ -16,10 +17,12 @@ use std::sync::Arc;
 ///
 /// The client automatically detects the provider from the URL and
 /// uses the appropriate authentication and cloning strategy.
+/// Supports caching to avoid unnecessary re-clones when repositories haven't changed.
 pub struct GitClient {
     config: Config,
     providers: Vec<Arc<dyn GitProvider>>,
     temp_dir: PathBuf,
+    cache_manager: CacheManager,
 }
 
 impl GitClient {
@@ -33,51 +36,182 @@ impl GitClient {
             Arc::new(AzureDevOpsProvider::new()),
         ];
 
-        // Create temp directory for cloned repos
+        // Create temp directory for cloned repos (fallback when cache disabled)
         let temp_dir = std::env::temp_dir();
+
+        // Create cache manager
+        let cache_manager = CacheManager::new(&config.cache);
 
         Self {
             config,
             providers,
             temp_dir,
+            cache_manager,
         }
     }
 
     /// Clone a repository and return the local path.
     ///
-    /// The repository is cloned to a temporary directory and the path
-    /// is returned for scanning.
+    /// If caching is enabled, this will:
+    /// 1. Check if the repository is already cached
+    /// 2. If cached, fetch updates and check if HEAD changed
+    /// 3. If not cached or cache miss, perform a fresh clone
+    ///
+    /// The path returned can be used for scanning.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - The provider is not supported
     /// - Authentication fails
-    /// - Cloning fails
+    /// - Cloning/fetching fails
     pub async fn clone_repository(&self, url: &str) -> Result<PathBuf> {
-        tracing::debug!(url = %url, "Starting repository clone");
+        tracing::debug!(url = %url, cache_enabled = self.cache_manager.is_enabled(), "Starting repository clone");
+
         // Find the appropriate provider
         let provider = self.find_provider(url)?;
-        tracing::debug!(
-            provider = provider.name(),
-            url = %url,
-            "Found provider for URL"
-        );
+        let branch = self.config.git.branch.as_deref();
+        let token = self.get_token_for_url(url)?;
 
+        // Check if we should use cache
+        if self.cache_manager.is_enabled() {
+            return self.clone_with_cache(url, provider, branch, &token).await;
+        }
+
+        // Fallback to non-cached clone
+        self.clone_without_cache(url, provider, branch, &token).await
+    }
+
+    /// Clone a repository using the cache.
+    async fn clone_with_cache(
+        &self,
+        url: &str,
+        provider: &Arc<dyn GitProvider>,
+        branch: Option<&str>,
+        token: &str,
+    ) -> Result<PathBuf> {
+        // Ensure cache directory exists
+        self.cache_manager.ensure_cache_dir().await?;
+
+        let cache_path = self.cache_manager.get_cache_path(url);
+        
+        // Check if we have a cached version
+        if let Some(cache_entry) = self.cache_manager.get_cached(url).await {
+            // Check if cache is fresh enough to skip fetch entirely
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let age_seconds = now.saturating_sub(cache_entry.last_updated);
+            let fresh_threshold = self.cache_manager.fresh_threshold_seconds();
+
+            if age_seconds < fresh_threshold {
+                tracing::info!(
+                    url = %url,
+                    sha = %cache_entry.head_sha,
+                    age_seconds = age_seconds,
+                    fresh_threshold = fresh_threshold,
+                    "Using fresh cache, skipping fetch"
+                );
+                // Update last accessed time
+                let _ = self.cache_manager.touch_cache_entry(url).await;
+                return Ok(cache_path);
+            }
+
+            tracing::info!(
+                url = %url,
+                path = %cache_path.display(),
+                cached_sha = %cache_entry.head_sha,
+                age_seconds = age_seconds,
+                "Cache stale, checking for updates"
+            );
+
+            // Try to fetch updates
+            match self.cache_manager.fetch_updates(&cache_path, branch).await {
+                Ok(new_sha) => {
+                    if new_sha == cache_entry.head_sha {
+                        tracing::info!(
+                            url = %url,
+                            sha = %new_sha,
+                            "Repository unchanged"
+                        );
+                        // Refresh cache entry timestamps (both last_accessed and last_updated)
+                        // This ensures subsequent runs within fresh_threshold won't re-fetch
+                        let _ = self.cache_manager.refresh_cache_entry(url).await;
+                    } else {
+                        tracing::info!(
+                            url = %url,
+                            old_sha = %cache_entry.head_sha,
+                            new_sha = %new_sha,
+                            "Repository updated"
+                        );
+                        // Update cache entry with new SHA
+                        self.cache_manager.update_cache_entry(url, &new_sha, branch).await?;
+                    }
+                    return Ok(cache_path);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        url = %url,
+                        error = %e,
+                        "Failed to fetch updates, will re-clone"
+                    );
+                    // Remove corrupted cache and re-clone
+                    let _ = tokio::fs::remove_dir_all(&cache_path).await;
+                }
+            }
+        }
+
+        // No cache or cache invalid - perform fresh clone
         tracing::info!(
             provider = provider.name(),
             url = %url,
-            "Cloning repository"
+            path = %cache_path.display(),
+            "Cloning repository to cache"
+        );
+
+        // Remove existing directory if it exists (corrupted cache)
+        if cache_path.exists() {
+            tokio::fs::remove_dir_all(&cache_path)
+                .await
+                .map_err(|e| MonPhareError::io(&cache_path, e, file!(), line!()))?;
+        }
+
+        // Clone the repository
+        provider
+            .clone_repo(url, &cache_path, branch, Some(token))
+            .await?;
+
+        // Get the HEAD SHA and create cache entry
+        let head_sha = self.cache_manager.get_head_sha(&cache_path).await?;
+        self.cache_manager.update_cache_entry(url, &head_sha, branch).await?;
+
+        tracing::info!(
+            path = %cache_path.display(),
+            sha = %head_sha,
+            "Repository cloned and cached successfully"
+        );
+
+        Ok(cache_path)
+    }
+
+    /// Clone a repository without caching (original behavior).
+    async fn clone_without_cache(
+        &self,
+        url: &str,
+        provider: &Arc<dyn GitProvider>,
+        branch: Option<&str>,
+        token: &str,
+    ) -> Result<PathBuf> {
+        tracing::info!(
+            provider = provider.name(),
+            url = %url,
+            "Cloning repository (cache disabled)"
         );
 
         // Generate a unique directory name
         let repo_name = self.extract_repo_name(url);
         let target_path = self.temp_dir.join(&repo_name);
-        tracing::debug!(
-            repo_name = %repo_name,
-            target_path = %target_path.display(),
-            "Generated target path for clone"
-        );
 
         // Remove existing directory if it exists
         if target_path.exists() {
@@ -91,31 +225,13 @@ impl GitClient {
         }
 
         // Create parent directory
-        tracing::debug!(
-            temp_dir = %self.temp_dir.display(),
-            "Creating temp directory if needed"
-        );
         tokio::fs::create_dir_all(&self.temp_dir)
             .await
             .map_err(|e| MonPhareError::io(&self.temp_dir, e, file!(), line!()))?;
 
         // Clone the repository
-        let branch = self.config.git.branch.as_deref();
-        let token = self.get_token_for_url(url)?;
-        tracing::debug!(
-            url = %url,
-            target_path = %target_path.display(),
-            branch = ?branch,
-            has_token = token,
-            "Starting repository clone operation"
-        );
         provider
-            .clone_repo(
-                url,
-                &target_path,
-                branch,
-                Some(&token),
-            )
+            .clone_repo(url, &target_path, branch, Some(token))
             .await?;
 
         tracing::info!(

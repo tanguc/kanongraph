@@ -49,9 +49,11 @@
 //! }
 //! ```
 
+mod cache;
 mod client;
 mod providers;
 
+pub use cache::{CacheEntry, CacheManager, CacheResult};
 pub use client::GitClient;
 pub use providers::{
     AzureDevOpsProvider, BitbucketProvider, GitHubProvider, GitLabProvider, GitProvider,

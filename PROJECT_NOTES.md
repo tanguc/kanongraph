@@ -50,13 +50,13 @@
 **What was removed:**
 - `detect_module_conflicts()` and `detect_provider_conflicts()` methods
 - `FindingCategory::ConstraintConflict` enum variant
-- DRIFT001 finding code
+- Conflict detection finding code
 - All conflict detection tests
 
 **New analysis pipeline:**
-1. Phase 1: Missing constraints (DRIFT002)
-2. Phase 2: Risky patterns (DRIFT003, DRIFT005-007)
-3. Phase 3: Broad constraints (DRIFT004)
+1. Phase 1: Missing constraints (missing-version)
+2. Phase 2: Risky patterns (wildcard-constraint, prerelease-version, exact-version, no-upper-bound)
+3. Phase 3: Broad constraints (broad-constraint)
 4. Phase 4: Deprecations (user-defined rules)
 
 ### CLI Design: Inline Deprecation Rules
@@ -174,7 +174,7 @@ fn test_something() {
 
 ### Open Questions
 
-1. Should we keep "drift" in finding codes (DRIFT002-007) or rename to something more policy-focused? (POLICY002, RULE002, CHECK002?)
+1. ~~Should we keep "drift" in finding codes (DRIFT002-007) or rename to something more policy-focused?~~ **RESOLVED:** Renamed to descriptive kebab-case codes like Clippy (missing-version, wildcard-constraint, etc.)
 
 2. Built-in deprecation rules vs always user-defined?
    - Option A: Ship with common module deprecations (terraform-aws-modules, etc.)

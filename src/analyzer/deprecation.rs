@@ -129,6 +129,10 @@ impl DeprecationAnalyzer {
     fn check_module_deprecations(&self, modules: &[ModuleRef]) -> Vec<ModuleRef> {
         let mut findings = Vec::new();
         for module in modules {
+            if module.source.is_local() {
+                tracing::trace!(module = %module.name, "Local module, skipping deprecation check");
+                continue;
+            }
             let mut deprecated = false;
             for key in module_deprecation_keys(&module.source) {
                 tracing::debug!(

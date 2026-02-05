@@ -141,7 +141,7 @@ src/
 - **ModuleSource**: Enum for different source types (Registry, Git, Local, S3, Unknown)
 - **Constraint**: Version constraint with raw string and parsed VersionRange vector
 - **DependencyGraph**: petgraph DiGraph with GraphNode (Module/Provider) and EdgeType, plus HashMap for O(1) lookup
-- **Finding**: Analysis issue with code (DRIFT002-007), severity, message, location
+- **Finding**: Analysis issue with descriptive code, severity, message, location
 
 ### Module Source Parsing
 
@@ -155,12 +155,12 @@ Uses regex patterns with fallback to `Unknown` for unrecognized formats.
 
 ## Finding Codes
 
-- **DRIFT002**: Missing version constraint
-- **DRIFT003**: Wildcard constraint (using `*`)
-- **DRIFT004**: Overly broad constraint (e.g., `>= 0.0.0`)
-- **DRIFT005**: Pre-release version
-- **DRIFT006**: Exact version constraint (prevents updates)
-- **DRIFT007**: No upper bound (allows breaking changes)
+- **missing-version**: Missing version constraint
+- **wildcard-constraint**: Wildcard constraint (using `*`)
+- **broad-constraint**: Overly broad constraint (e.g., `>= 0.0.0`)
+- **prerelease-version**: Pre-release version
+- **exact-version**: Exact version constraint (prevents updates)
+- **no-upper-bound**: No upper bound (allows breaking changes)
 
 ## Configuration
 
@@ -180,6 +180,7 @@ Generate example config: `monphare init`
 - **Test fixtures**: Located in `tests/fixtures/` with subdirectories for different scenarios (simple, conflicts, risky)
 - **Error handling**: Uses `thiserror` for library errors, `anyhow` for application-level errors with continue-on-error support
 - **Git operations**: Shallow clones (`depth=1`) for performance
+- **Repository caching**: Cloned repos cached in `~/.cache/monphare/repos`, uses `git fetch` to check for updates instead of fresh clones
 
 ## CI/CD
 

@@ -6,7 +6,7 @@ use crate::VersionRange;
 use crate::config::Config;
 use crate::error::{MonPhareError, ErrorCollector, Result};
 use crate::parser::{Parser, SKIP_FILES, TERRAFORM_EXTENSIONS};
-use crate::types::{Constraint, ModuleRef, ParsedHcl, ProviderRef, RuntimeRef, RuntimeSource};
+use crate::types::{Constraint, ModuleRef, ParsedHcl, ProviderRef, RuntimeRef, RuntimeSource, ScanWarning};
 
 use hcl::{Block, Body, Expression};
 use std::path::Path;
@@ -186,6 +186,7 @@ impl Parser for HclParser {
             providers: Vec::new(),
             runtimes: Vec::new(),
             files: vec![file_path.to_path_buf()],
+            warnings: Vec::new(),
         };
 
         // Process all blocks
@@ -193,9 +194,9 @@ impl Parser for HclParser {
             if let hcl::Structure::Block(block) = structure {
                 match block.identifier.as_str() {
                     "module" => {
-                        if let Some(module_ref) =
-                            parse_module_block(&block, file_path, repository)?
-                        {
+                        let parse_result = parse_module_block(&block, file_path, repository)?;
+                        result.warnings.extend(parse_result.warnings);
+                        if let Some(module_ref) = parse_result.module {
                             result.modules.push(module_ref);
                         } else {
                             tracing::warn!("Failed to parse module block: {}", block.identifier);
@@ -210,23 +211,10 @@ impl Parser for HclParser {
                         }
                     }
                     "terraform" => {
-                        match parse_terraform_block(&block, file_path, repository) {
-                            Ok((runtimes, providers)) => {
-                                result.providers.extend(providers);
-                                result.runtimes.extend(runtimes);
-                            }
-                            Err(e) => {
-                                tracing::warn!("Failed to parse terraform block: {}", e);
-                                if !self.config.scan.continue_on_error {
-                                    return Err(crate::err!(HclParse {
-                                        file: file_path.to_path_buf(),
-                                        message: format!("Failed to parse terraform block: {}", e),
-                                        line: None,
-                                        column: None,
-                                    }));
-                                }
-                            }
-                        }
+                        let parse_result = parse_terraform_block(&block, file_path, repository);
+                        result.providers.extend(parse_result.providers);
+                        result.runtimes.extend(parse_result.runtimes);
+                        result.warnings.extend(parse_result.warnings);
                     }
                     _ => {
                         // Ignore other block types (resource, data, variable, etc.)
@@ -239,12 +227,23 @@ impl Parser for HclParser {
     }
 }
 
+/// Result of parsing a module block - module reference and any warnings.
+struct ModuleParseResult {
+    module: Option<ModuleRef>,
+    warnings: Vec<ScanWarning>,
+}
+
 /// Parse a module block into a `ModuleRef`.
+/// 
+/// Instead of failing on unparseable version constraints, we skip the constraint
+/// and record a warning. This allows scanning to continue.
 fn parse_module_block(
     block: &Block,
     file_path: &Path,
     repository: Option<&str>,
-) -> Result<Option<ModuleRef>> {
+) -> Result<ModuleParseResult> {
+    let mut warnings = Vec::new();
+    
     // Get module name from labels
     let name = block
         .labels
@@ -261,28 +260,41 @@ fn parse_module_block(
                 file = %file_path.display(),
                 "Module block missing source attribute"
             );
-            return Ok(None);
+            return Ok(ModuleParseResult { module: None, warnings });
         }
     };
 
     // Parse the source
     let source = super::parse_module_source(&source_str)?;
 
-
-
-    // extract version constraint
+    // Extract version constraint - skip and warn if unparseable
     let version_constraint = match get_string_attribute(&block.body, "version") {
         None => None,
         Some(version_str) => {
-            let constraint = Constraint::parse(&version_str).map_err(|e| {
-                crate::err!(HclParse {
-                    file: file_path.to_path_buf(),
-                    message: format!("failed to parse version constraint: {}", e),
-                    line: None,
-                    column: None,
-                })
-            })?;
-            Some(constraint)
+            match Constraint::parse(&version_str) {
+                Ok(constraint) => Some(constraint),
+                Err(e) => {
+                    tracing::warn!(
+                        module = %name,
+                        version = %version_str,
+                        file = %file_path.display(),
+                        error = %e,
+                        "Skipping unparseable version constraint"
+                    );
+                    warnings.push(ScanWarning {
+                        code: "unparseable-constraint".to_string(),
+                        message: format!(
+                            "Module '{}' has unparseable version constraint '{}': {}",
+                            name, version_str, e
+                        ),
+                        file: file_path.to_path_buf(),
+                        line: None,
+                        repository: repository.map(String::from),
+                    });
+                    // Continue without version constraint instead of failing
+                    None
+                }
+            }
         }
     };
 
@@ -297,15 +309,25 @@ fn parse_module_block(
         }
     }
 
-    Ok(Some(ModuleRef {
-        name,
-        source,
-        version_constraint,
-        file_path: file_path.to_path_buf(),
-        line_number: 0, // HCL-rs doesn't provide line numbers easily
-        repository: repository.map(String::from),
-        attributes,
-    }))
+    Ok(ModuleParseResult {
+        module: Some(ModuleRef {
+            name,
+            source,
+            version_constraint,
+            file_path: file_path.to_path_buf(),
+            line_number: 0, // HCL-rs doesn't provide line numbers easily
+            repository: repository.map(String::from),
+            attributes,
+        }),
+        warnings,
+    })
+}
+
+/// Result of parsing a terraform block - runtimes, providers, and any warnings.
+struct TerraformParseResult {
+    runtimes: Vec<RuntimeRef>,
+    providers: Vec<ProviderRef>,
+    warnings: Vec<ScanWarning>,
 }
 
 /// Parse a terraform block for required_providers.
@@ -313,9 +335,10 @@ fn parse_terraform_block(
     block: &Block,
     file_path: &Path,
     repository: Option<&str>,
-) -> Result<(Vec<RuntimeRef>, Vec<ProviderRef> )> {
+) -> TerraformParseResult {
     let mut providers = Vec::new();
     let mut runtimes = Vec::new();
+    let mut warnings = Vec::new();
 
     // Look for nested blocks
     for structure in block.body.clone().into_inner() {
@@ -326,43 +349,82 @@ fn parse_terraform_block(
                     let provider_name = attr.key.as_str().to_string();
 
                     // the value can be a string (version only) or an object (source + version)
-                    let (source, version_constraint) = parse_provider_requirement(&attr.expr)
-                        .map_err(|e| {
-                            crate::err!(HclParse {
+                    match parse_provider_requirement(&attr.expr) {
+                        Ok((source, version_constraint)) => {
+                            providers.push(ProviderRef {
+                                name: provider_name,
+                                source,
+                                version_constraint,
+                                file_path: file_path.to_path_buf(),
+                                line_number: 0,
+                                repository: repository.map(String::from),
+                            });
+                        }
+                        Err(e) => {
+                            // Skip unparseable provider and add warning
+                            tracing::warn!(
+                                provider = %provider_name,
+                                file = %file_path.display(),
+                                error = %e,
+                                "Skipping provider with unparseable version constraint"
+                            );
+                            warnings.push(ScanWarning {
+                                code: "unparseable-constraint".to_string(),
+                                message: format!(
+                                    "Provider '{}' has unparseable version constraint: {}",
+                                    provider_name, e
+                                ),
                                 file: file_path.to_path_buf(),
-                                message: format!("failed to parse provider '{}': {}", provider_name, e),
                                 line: None,
-                                column: None,
-                            })
-                        })?;
-
-                    providers.push(ProviderRef {
-                        name: provider_name,
-                        source,
-                        version_constraint,
-                        file_path: file_path.to_path_buf(),
-                        line_number: 0,
-                        repository: repository.map(String::from),
-                    });
+                                repository: repository.map(String::from),
+                            });
+                            // Still add the provider but without version constraint
+                            providers.push(ProviderRef {
+                                name: provider_name,
+                                source: None,
+                                version_constraint: None,
+                                file_path: file_path.to_path_buf(),
+                                line_number: 0,
+                                repository: repository.map(String::from),
+                            });
+                        }
+                    }
                 }
             }
         }
         if let hcl::Structure::Attribute(attribute) = &structure {
             if attribute.key() == "required_version" {
-                let version = parse_required_version(attribute.expr(), file_path)?;
-                runtimes.push(RuntimeRef {
-                    name: "terraform".to_string(),
-                    version,
-                    source: RuntimeSource::Terraform, // TODO: support opentofu
-                    file_path: file_path.to_path_buf(),
-                    line_number: 0,
-                    repository: repository.map(String::from),
-                });
+                match parse_required_version(attribute.expr(), file_path) {
+                    Ok(version) => {
+                        runtimes.push(RuntimeRef {
+                            name: "terraform".to_string(),
+                            version,
+                            source: RuntimeSource::Terraform,
+                            file_path: file_path.to_path_buf(),
+                            line_number: 0,
+                            repository: repository.map(String::from),
+                        });
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            file = %file_path.display(),
+                            error = %e,
+                            "Skipping unparseable required_version"
+                        );
+                        warnings.push(ScanWarning {
+                            code: "unparseable-constraint".to_string(),
+                            message: format!("Unparseable required_version: {}", e),
+                            file: file_path.to_path_buf(),
+                            line: None,
+                            repository: repository.map(String::from),
+                        });
+                    }
+                }
             }
         }
     }
 
-    Ok((runtimes, providers))
+    TerraformParseResult { runtimes, providers, warnings }
 }
 
 fn parse_required_version(expr: &Expression, file_path: &Path) -> Result<Constraint> {

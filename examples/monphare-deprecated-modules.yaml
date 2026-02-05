@@ -58,6 +58,13 @@ git:
   # Branch to checkout (default: repository's default branch)
   # branch: main
 
+# Cache options - avoid unnecessary re-clones
+cache:
+  # Enable repository caching (default: true)
+  enabled: true
+  # Time-to-live in hours (default: 24)
+  ttl_hours: 24
+
 # Policy rules - customize these based on your organization's standards
 policies:
   # Require version constraints on all modules
@@ -160,7 +167,7 @@ deprecations:
 # Severity overrides for specific finding codes
 # Use this to customize severity based on your needs
 # severity_overrides:
-#   DRIFT002: info      # Downgrade missing constraint to info
-#   DRIFT003: error     # Upgrade wildcard to error
-#   DRIFT006: warning   # Upgrade exact version to warning
+#   missing-version: info      # Downgrade missing constraint to info
+#   wildcard-constraint: error # Upgrade wildcard to error
+#   exact-version: warning     # Upgrade exact version to warning
 
