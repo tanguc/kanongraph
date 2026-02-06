@@ -1,31 +1,65 @@
-# 🔍 MonPhare
+# MonPhare
 
-**Terraform/OpenTofu module constraint analyzer and dependency mapper.**
+**Catch version drift, deprecated modules, and risky constraints across all your Terraform repos.**
 
 [![CI](https://github.com/tanguc/monphare/actions/workflows/ci.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/ci.yml)
 [![Release](https://github.com/tanguc/monphare/actions/workflows/release.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds dependency graphs, and detects version constraint conflicts, deprecated modules, and risky patterns.
+## The problem
 
-## ✨ Features
+Across your repos, this is happening right now:
 
-- **🔄 Multi-Provider Git Support**: Clone repositories from GitHub, GitLab, Bitbucket, and Azure DevOps
-- **📝 HCL Parsing**: Extract module blocks, provider requirements, and version constraints
-- **🕸️ Dependency Graph**: Build and visualize module/provider relationships
-- **⚠️ Conflict Detection**: Identify version constraint conflicts across repositories
-- **🚨 Risk Analysis**: Flag deprecated modules, missing constraints, and risky patterns
-- **📊 Multiple Output Formats**: JSON, plain text, and self-contained HTML reports
-- **🔧 CI/CD Ready**: Exit codes for automated pipeline checks
-- **⚡ Smart Caching**: Repository caching with fresh threshold for fast repeat scans
+```hcl
+# team-a/main.tf -- no pin, pulls latest on every init
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+}
 
-## 🚀 Quick Start
+# team-b/main.tf -- anything goes
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = ">= 0.0.0"
+}
+
+# team-c/main.tf -- frozen, no security patches
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "= 2.44.0"
+}
+```
+
+Nobody knows until something breaks. MonPhare finds these before production does.
+
+## What MonPhare catches
+
+| Issue | What's wrong | Example |
+|-------|-------------|---------|
+| **Missing version** | No constraint at all, pulls latest on every init | `source = "aws-modules/vpc/aws"` (no `version`) |
+| **Too broad** | Accepts anything, including breaking changes | `version = ">= 0.0.0"` |
+| **Wildcard** | Same as above, different syntax | `version = "*"` |
+| **No upper bound** | Lets breaking majors in silently | `version = ">= 3.0"` |
+| **Exact pin** | Frozen -- no patches, no security fixes | `version = "= 2.44.0"` |
+| **Pre-release** | Alpha/beta refs in production | `version = "~> 2.0.0-beta"` |
+| **Cross-repo conflict** | Two repos want incompatible ranges for the same module | repo-a: `>= 5.0` vs repo-b: `< 5.0` |
+| **Deprecated module** | Module with known CVE or retired version still in use | `claranet/azure-log-mngt-v1/azurerm` at `1.0.1` |
+| **Deprecated provider** | Provider version range flagged by your security team | `hashicorp/azurerm` `< 3.50.0` |
+| **Deprecated runtime** | Terraform/OpenTofu version too old | `terraform < 0.13.0` |
+
+## Quick start
 
 ### Installation
 
-#### Pre-built Binaries (Recommended)
+#### Homebrew (macOS / Linux)
 
-Download the latest release for your platform from the [Releases page](https://github.com/tanguc/monphare/releases):
+```bash
+brew tap tanguc/tap
+brew install monphare
+```
+
+#### Pre-built binaries
+
+Download from the [Releases page](https://github.com/tanguc/monphare/releases):
 
 | Platform | Architecture | Download |
 |----------|--------------|----------|
@@ -36,308 +70,213 @@ Download the latest release for your platform from the [Releases page](https://g
 | Windows | x86_64 | `monphare-windows-x86_64.zip` |
 
 ```bash
-# Linux/macOS - download and extract
+# linux/macOS
 curl -LO https://github.com/tanguc/monphare/releases/latest/download/monphare-linux-x86_64.tar.gz
 tar -xzf monphare-linux-x86_64.tar.gz
 sudo mv monphare /usr/local/bin/
 
-# Verify installation
 monphare --version
 ```
 
-#### From Source
+#### From source
 
 ```bash
-# From source
 git clone https://github.com/tanguc/monphare
 cd monphare
 cargo install --path .
 ```
 
-### Basic Usage
+### Run your first scan
 
 ```bash
-# Scan a local directory
 monphare scan ./terraform
+```
 
-# Scan multiple directories
+Output:
+
+```
+MonPhare v0.1.1  [FAILED]  3 errors, 3 warnings
+Scanned: 1 files, 4 modules, 3 providers
+
++------+-----------------------+----------------+----------+-----------+
+| Sev  | Resource              | Issue          | Current  | File      |
++------+-----------------------+----------------+----------+-----------+
+| ERR  | module.vpc_no_version | No version     | -        | main.tf:0 |
+| ERR  | module.git_module     | No version     | -        | main.tf:0 |
+| ERR  | provider.aws          | No version     | -        | main.tf:0 |
+| WARN | resource.google       | No upper bound | -        | main.tf:0 |
+| WARN | resource.azurerm      | No upper bound | -        | main.tf:0 |
+| WARN | provider.google       | Too broad      | >= 0.0.0 | main.tf:0 |
+| INFO | resource.eks_exact    | Exact version  | -        | main.tf:0 |
++------+-----------------------+----------------+----------+-----------+
+
+Fix errors to pass.
+```
+
+## Commands
+
+### `scan` -- analyze constraints across repos
+
+The core command. Point it at local directories, remote repos, or an entire org.
+
+```bash
+# local directories
 monphare scan ./repo1 ./repo2 ./repo3
 
-# Scan remote repositories
+# remote repositories
 monphare scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
 
-# Generate JSON report
+# output as JSON or HTML
 monphare scan ./terraform --format json --output report.json
-
-# Generate HTML report
 monphare scan ./terraform --format html --output report.html
 
-# Generate dependency graph
+# strict mode for CI -- exit code 1 on warnings
+monphare scan ./terraform --strict
+```
+
+### `scan` -- at org scale
+
+Scan all repositories from a GitHub org, GitLab group, Azure DevOps project, or Bitbucket workspace in one command.
+
+```bash
+export MONPHARE_GIT_TOKEN=ghp_xxx
+
+# all repos in a GitHub organization
+monphare scan --github my-org
+
+# all projects in a GitLab group
+monphare scan --gitlab my-group
+
+# all repos in an Azure DevOps org or project
+monphare scan --ado my-org
+monphare scan --ado my-org/my-project
+
+# all repos in a Bitbucket workspace
+monphare scan --bitbucket my-workspace
+```
+
+### `graph` -- visualize dependencies
+
+See how modules and providers relate to each other. Useful to understand blast radius before upgrading a shared module.
+
+```bash
+# DOT format (for Graphviz)
 monphare graph ./terraform --format dot --output deps.dot
+
+# Mermaid diagram (renders in GitHub, GitLab, Notion, etc.)
+monphare graph ./terraform --format mermaid
+
+# JSON for programmatic use
+monphare graph ./terraform --format json
+
+# filter to modules only or providers only
+monphare graph ./terraform --modules-only
+monphare graph ./terraform --providers-only
 ```
 
-### Configuration
+### `init` -- generate a starter config
 
-Create a `monphare.yaml` file:
-
-```yaml
-# monphare.yaml
-scan:
-  exclude_patterns:
-    - "**/test/**"
-    - "**/examples/**"
-  continue_on_error: true
-
-analysis:
-  check_exact_versions: true
-  check_prerelease: true
-  max_age_months: 12
-
-output:
-  colored: true
-  verbose: false
-
-policies:
-  require_version_constraint: true
-  require_upper_bound: false
-```
-
-Generate an example configuration:
+Creates a `monphare.yaml` in the current directory with documented defaults.
 
 ```bash
 monphare init
 ```
 
-## 📖 Documentation
+### `validate` -- check your config
 
-### CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `scan` | Scan directories or repositories for Terraform files |
-| `graph` | Generate dependency graph visualization |
-| `init` | Create an example configuration file |
-| `validate` | Validate a configuration file |
-
-### Scan Options
+Validates a config file before you wire it into CI.
 
 ```bash
-monphare scan [OPTIONS] [PATHS]...
-
-Options:
-  -r, --repo <URL>          Git repository URLs to clone and scan
-  -f, --format <FORMAT>     Output format [default: text] [values: json, text, html]
-  -o, --output <FILE>       Output file path (stdout if not specified)
-      --strict              Treat warnings as errors
-      --continue-on-error   Continue scanning even if some files fail
-  -e, --exclude <PATTERN>   Patterns to exclude from scanning
-      --branch <BRANCH>     Git branch to checkout
-      --git-token <TOKEN>   Git authentication token
-  -v, --verbose             Increase verbosity
-  -q, --quiet               Suppress all output except errors
+monphare validate monphare.yaml
 ```
 
-### Exit Codes
+## Configuration
+
+MonPhare uses a `monphare.yaml` file. Run `monphare init` to generate one with all available options.
+
+```yaml
+scan:
+  exclude_patterns:
+    - "**/test/**"
+    - "**/examples/**"
+    - "**/.terraform/**"
+  continue_on_error: true
+
+analysis:
+  check_exact_versions: true
+  check_prerelease: true
+  check_upper_bound: true
+
+policies:
+  require_version_constraint: true
+  require_upper_bound: false
+
+# flag modules/providers with known issues
+deprecations:
+  modules:
+    "claranet/azure-log-mngt-v1/azurerm":
+      - version: "1.0.1"
+        reason: "Critical security vulnerability CVE-2023-1234"
+        severity: error
+        replacement: "claranet/azure-log-mngt-v3/azurerm"
+  providers:
+    "hashicorp/azurerm":
+      versions:
+        - version: "> 0.0.1, < 3.50.0"
+          reason: "Multiple CVEs in versions before 3.50.0"
+          severity: error
+          replacement: ">= 3.50.0"
+
+cache:
+  enabled: true
+  ttl_hours: 24
+```
+
+Configuration priority (highest to lowest):
+1. CLI arguments
+2. Environment variables (`MONPHARE_GIT_TOKEN`, `MONPHARE_CONFIG`)
+3. `monphare.yaml`
+4. Defaults
+
+## CI/CD integration
+
+Use `--strict` to fail the pipeline when warnings are found.
+
+```yaml
+# GitHub Actions example
+- name: Analyze Terraform constraints
+  run: monphare scan ./terraform --strict --format json --output report.json
+```
+
+### Exit codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success - no issues found |
-| 1 | Warnings found (with `--strict`) |
-| 2 | Errors found |
+| 0 | No issues (or warnings without `--strict`) |
+| 1 | Warnings found (with `--strict`), or runtime error |
+| 2 | Constraint errors found |
 
-## 🏗️ Architecture
+## Finding reference
 
-```
-monphare/
-├── src/
-│   ├── lib.rs           # Library entry point
-│   ├── main.rs          # CLI entry point
-│   ├── types.rs         # Core data structures
-│   ├── error.rs         # Error types
-│   ├── config.rs        # Configuration handling
-│   ├── parser/          # HCL parsing
-│   │   ├── mod.rs
-│   │   ├── hcl.rs       # HCL parser implementation
-│   │   └── source.rs    # Module source parsing
-│   ├── graph/           # Dependency graph
-│   │   ├── mod.rs       # Graph documentation
-│   │   ├── types.rs     # Graph types
-│   │   ├── builder.rs   # Graph construction
-│   │   └── export.rs    # Graph export (DOT, JSON, Mermaid)
-│   ├── analyzer/        # Constraint analysis
-│   │   ├── mod.rs
-│   │   ├── conflict.rs  # Conflict detection
-│   │   └── patterns.rs  # Risky pattern detection
-│   ├── reporter/        # Report generation
-│   │   ├── mod.rs
-│   │   ├── json.rs      # JSON reports
-│   │   ├── text.rs      # Text reports
-│   │   └── html.rs      # HTML reports
-│   ├── git/             # Git provider abstraction
-│   │   ├── mod.rs
-│   │   ├── client.rs    # Git client
-│   │   └── providers.rs # Provider implementations
-│   └── cli/             # CLI interface
-│       └── mod.rs
-├── tests/
-│   ├── fixtures/        # Test Terraform files
-│   └── integration_tests.rs
-└── .github/
-    └── workflows/
-        └── ci.yml       # GitHub Actions CI
+| Code | Severity | Description |
+|------|----------|-------------|
+| `missing-version` | error | Module or provider has no version constraint |
+| `wildcard-constraint` | warning | Constraint uses `*` wildcard |
+| `broad-constraint` | warning | Constraint is too permissive (e.g. `>= 0.0.0`) |
+| `no-upper-bound` | warning | No upper bound allows breaking changes in |
+| `exact-version` | info | Exact pin prevents patch and security updates |
+| `prerelease-version` | info | Pre-release version referenced |
+
+## Contributing
+
+Contributions welcome. Fork, branch, PR.
+
+```bash
+cargo test --all-features
+cargo clippy --all-features -- -D warnings
+cargo fmt --all -- --check
 ```
 
-## 🔬 Finding Types
+## License
 
-### missing-version
-
-A module or provider has no version constraint specified.
-
-```
-[ERROR] missing-version: Module 'vpc' has no version constraint
-```
-
-### wildcard-constraint
-
-A constraint uses wildcards (`*`).
-
-```
-[WARNING] wildcard-constraint: 'my-module' uses wildcard version constraint
-```
-
-### broad-constraint
-
-A constraint is too permissive (e.g., `>= 0.0.0`).
-
-```
-[WARNING] broad-constraint: Module 'vpc' has overly broad constraint: >= 0.0.0
-```
-
-### prerelease-version
-
-A constraint references a pre-release version.
-
-```
-[INFO] prerelease-version: 'my-module' uses pre-release version
-```
-
-### exact-version
-
-An exact version constraint prevents automatic updates.
-
-```
-[INFO] exact-version: 'eks' uses exact version constraint
-```
-
-### no-upper-bound
-
-A constraint has no upper bound, allowing breaking changes.
-
-```
-[WARNING] no-upper-bound: 'my-module' has no upper bound on version
-```
-
-## 📊 Example Output
-
-### Text Report
-
-```
-═══════════════════════════════════════════════════════════════
-  MonPhare Analysis Report v0.1.0
-Generated: 2024-01-15 10:30:00
-═══════════════════════════════════════════════════════════════
-
-📊 Summary
-----------------------------------------
-  Files scanned:    15
-  Modules found:    8
-  Providers found:  3
-  Total findings:   5
-    2 Errors, 2 Warnings, 1 Info
-
-🔍 Findings
-----------------------------------------
-
-  [ERROR] Version constraint conflict for 'terraform-aws-modules/vpc/aws'
-    → repo-a/main.tf:10
-    → repo-b/main.tf:5
-    The constraints '>= 5.0' and '<= 4.0' have no overlapping versions.
-    💡 Consider aligning the constraints.
-
-  [ERROR] Module 'eks' has no version constraint (missing-version)
-    → main.tf:25
-    💡 Add a version constraint, e.g., version = "~> 1.0"
-
-✅ PASSED with warnings
-```
-
-### Dependency Graph (Mermaid)
-
-```mermaid
-graph TD
-    subgraph Modules
-        vpc["📦 vpc"]
-        eks["📦 eks"]
-    end
-    subgraph Providers
-        aws(("🔌 hashicorp/aws"))
-    end
-    vpc -.-> aws
-    eks -.-> aws
-    eks --> vpc
-```
-
-## 🔧 Library Usage
-
-```rust
-use monphare::{Scanner, Config, ReportFormat};
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let config = Config::default();
-    let scanner = Scanner::new(config);
-
-    // Scan a local directory
-    let result = scanner.scan_path("./terraform").await?;
-
-    // Check for issues
-    if result.analysis.has_errors() {
-        eprintln!("Errors found!");
-    }
-
-    // Generate a report
-    let report = result.generate_report(ReportFormat::Json)?;
-    println!("{}", report);
-
-    Ok(())
-}
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📜 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🗺️ Roadmap
-
-- [ ] **v0.2.0**: REST API for SaaS dashboard integration
-- [ ] **v0.3.0**: GitHub Actions integration
-- [ ] **v0.4.0**: Pulumi support
-- [ ] **v0.5.0**: Auto-remediation suggestions
-- [ ] **v1.0.0**: Production release
-
-## 🙏 Acknowledgments
-
-- [hcl-rs](https://github.com/martinohmann/hcl-rs) - HCL parsing
-- [petgraph](https://github.com/petgraph/petgraph) - Graph data structures
-- [clap](https://github.com/clap-rs/clap) - CLI framework
-
+MIT -- see [LICENSE](LICENSE).

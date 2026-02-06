@@ -495,7 +495,7 @@ impl Config {
     #[must_use]
     pub fn example_yaml() -> String {
         r#"# MonPhare Configuration File
-# https://github.com/yourusername/monphare
+# https://github.com/tanguc/monphare
 
 # Scanning options
 scan:

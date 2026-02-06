@@ -46,7 +46,7 @@ use std::path::PathBuf;
     long_about = "MonPhare scans Terraform/OpenTofu repositories, parses HCL files, builds \
                   dependency graphs, and detects version constraint conflicts, deprecated \
                   modules, and risky patterns.",
-    after_help = "For more information, visit: https://github.com/yourusername/monphare"
+    after_help = "For more information, visit: https://github.com/tanguc/monphare"
 )]
 pub struct Cli {
     /// Path to configuration file
