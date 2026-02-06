@@ -80,6 +80,20 @@ tar -xzf monphare-linux-x86_64.tar.gz
 sudo mv monphare /usr/local/bin/
 ```
 
+#### Docker
+
+```bash
+docker pull ghcr.io/tanguc/monphare:latest
+
+# scan a local directory
+docker run --rm -v "$(pwd):/workspace" ghcr.io/tanguc/monphare scan /workspace
+
+# scan a remote repo
+docker run --rm ghcr.io/tanguc/monphare scan https://github.com/terraform-aws-modules/terraform-aws-vpc
+```
+
+Available for `linux/amd64` and `linux/arm64`.
+
 #### From source
 
 ```bash

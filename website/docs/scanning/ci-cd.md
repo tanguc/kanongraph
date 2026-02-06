@@ -156,6 +156,57 @@ monphare-audit:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 ```
 
+## Using the Docker image
+
+If you prefer not to install a binary, the Docker image works in any CI system that supports containers.
+
+### GitHub Actions with Docker
+
+```yaml
+name: Terraform Constraint Check
+
+on:
+  pull_request:
+    paths:
+      - '**/*.tf'
+
+jobs:
+  monphare:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tanguc/monphare:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan Terraform constraints
+        run: monphare scan . --strict
+```
+
+### GitLab CI with Docker
+
+```yaml
+monphare:
+  stage: validate
+  image: ghcr.io/tanguc/monphare:latest
+  script:
+    - monphare scan . --strict --format json --output report.json
+  artifacts:
+    paths:
+      - report.json
+    when: always
+  rules:
+    - changes:
+        - '**/*.tf'
+```
+
+### Generic Docker usage in CI
+
+For any CI system that can run Docker:
+
+```bash
+docker run --rm -v "$(pwd):/workspace" ghcr.io/tanguc/monphare:latest scan /workspace --strict
+```
+
 ## Using JSON output with jq
 
 JSON output combined with `jq` is useful for custom checks beyond what `--strict` provides:

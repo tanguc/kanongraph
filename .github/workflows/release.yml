@@ -7,6 +7,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  packages: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -213,6 +214,67 @@ jobs:
           git add Formula/monphare.rb
           git commit -m "monphare ${VERSION}"
           git push
+
+  # Build and push multi-arch Docker images to GHCR
+  docker:
+    name: Docker Image
+    needs: [check-release, upload-assets]
+    if: ${{ needs.check-release.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: monphare-linux-*
+          path: artifacts
+
+      - name: Prepare Docker build context
+        run: |
+          mkdir -p amd64 arm64
+          tar -xzf artifacts/monphare-linux-x86_64/monphare-linux-x86_64.tar.gz -C amd64
+          tar -xzf artifacts/monphare-linux-aarch64/monphare-linux-aarch64.tar.gz -C arm64
+          chmod +x amd64/monphare arm64/monphare
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version parts
+        id: version
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          echo "full=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${MAJOR}.${MINOR}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/tanguc/monphare:${{ steps.version.outputs.full }}
+            ghcr.io/tanguc/monphare:${{ steps.version.outputs.major_minor }}
+            ghcr.io/tanguc/monphare:latest
+          labels: |
+            org.opencontainers.image.title=MonPhare
+            org.opencontainers.image.description=Terraform module constraint analyzer and dependency mapper
+            org.opencontainers.image.source=https://github.com/tanguc/monphare
+            org.opencontainers.image.version=${{ steps.version.outputs.full }}
+            org.opencontainers.image.licenses=MIT
 
   # Publish to crates.io (optional - uncomment when ready)
   # publish-crates:

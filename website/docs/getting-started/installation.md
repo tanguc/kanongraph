@@ -31,6 +31,32 @@ curl -sL https://github.com/tanguc/monphare/releases/latest/download/monphare-$(
 sudo mv monphare /usr/local/bin/
 ```
 
+## Docker
+
+Multi-arch images (`linux/amd64`, `linux/arm64`) are published to GitHub Container Registry on every release.
+
+```bash
+docker pull ghcr.io/tanguc/monphare:latest
+```
+
+Run against a local directory by mounting it into the container:
+
+```bash
+docker run --rm -v "$(pwd):/workspace" ghcr.io/tanguc/monphare scan /workspace
+```
+
+Or scan a remote repository directly:
+
+```bash
+docker run --rm ghcr.io/tanguc/monphare scan https://github.com/terraform-aws-modules/terraform-aws-vpc
+```
+
+Pin to a specific version:
+
+```bash
+docker pull ghcr.io/tanguc/monphare:0.3.0
+```
+
 ## From source
 
 Requires Rust 1.85 or later.
