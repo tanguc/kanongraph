@@ -4,7 +4,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 const config = {
   title: 'MonPhare',
   tagline: 'Catch version drift, deprecated modules, and risky constraints across all your Terraform repos',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   future: {
     v4: true,
@@ -51,6 +51,10 @@ const config = {
       },
       navbar: {
         title: 'MonPhare',
+        logo: {
+          alt: 'MonPhare',
+          src: 'img/logo.svg',
+        },
         items: [
           {
             type: 'docSidebar',

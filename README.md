@@ -6,6 +6,8 @@
 [![Release](https://github.com/tanguc/monphare/actions/workflows/release.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[Documentation](https://tanguc.github.io/MonPhare/)
+
 ## The problem
 
 Across your repos, this is happening right now:
