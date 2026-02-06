@@ -103,9 +103,21 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
     );
 
     match cli.command {
-        Commands::Scan(args) => {
+        Commands::Scan(mut args) => {
             tracing::debug!("Executing scan command");
             let scanner = Scanner::new(config.clone());
+
+            // detect URLs passed as positional args and treat them as repositories
+            let mut local_paths = Vec::new();
+            for path in std::mem::take(&mut args.paths) {
+                let s = path.to_string_lossy();
+                if s.starts_with("https://") || s.starts_with("http://") || s.starts_with("git@") {
+                    args.repositories.push(s.into_owned());
+                } else {
+                    local_paths.push(path);
+                }
+            }
+            args.paths = local_paths;
 
             // Handle bulk VCS organization scanning
             let bulk_scan = args.github.is_some()
