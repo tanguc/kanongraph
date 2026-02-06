@@ -78,8 +78,6 @@ Download from the [Releases page](https://github.com/tanguc/monphare/releases):
 curl -LO https://github.com/tanguc/monphare/releases/latest/download/monphare-linux-x86_64.tar.gz
 tar -xzf monphare-linux-x86_64.tar.gz
 sudo mv monphare /usr/local/bin/
-
-monphare --version
 ```
 
 #### From source
@@ -93,13 +91,17 @@ cargo install --path .
 ### Run your first scan
 
 ```bash
+# scan a local directory
 monphare scan ./terraform
+
+# scan a remote repo directly (public repos work without a token)
+monphare scan https://github.com/terraform-aws-modules/terraform-aws-vpc
 ```
 
 Output:
 
 ```
-MonPhare v0.1.1  [FAILED]  3 errors, 3 warnings
+MonPhare v0.3.0  [FAILED]  3 errors, 3 warnings
 Scanned: 1 files, 4 modules, 3 providers
 
 +------+-----------------------+----------------+----------+-----------+
@@ -119,16 +121,19 @@ Fix errors to pass.
 
 ## Commands
 
-### `scan` -- analyze constraints across repos
+### `scan` -- analyze constraints
 
-The core command. Point it at local directories, remote repos, or an entire org.
+Point it at local directories, remote URLs, or an entire org.
 
 ```bash
 # local directories
 monphare scan ./repo1 ./repo2 ./repo3
 
-# remote repositories
-monphare scan --repo https://github.com/org/repo1 --repo https://github.com/org/repo2
+# remote repositories (URL auto-detected, no --repo flag needed)
+monphare scan https://github.com/org/repo1 https://github.com/org/repo2
+
+# mix local and remote
+monphare scan ./local-repo https://github.com/org/remote-repo
 
 # output as JSON or HTML
 monphare scan ./terraform --format json --output report.json
@@ -140,22 +145,19 @@ monphare scan ./terraform --strict
 
 ### `scan` -- at org scale
 
-Scan all repositories from a GitHub org, GitLab group, Azure DevOps project, or Bitbucket workspace in one command.
+Scan all repositories from a GitHub org, GitLab group, Azure DevOps project, or Bitbucket workspace. Works without a token for public orgs.
 
 ```bash
+# public org -- no token needed
+monphare scan --github terraform-aws-modules
+
+# private org -- set token via env var
 export MONPHARE_GIT_TOKEN=ghp_xxx
+monphare scan --github my-private-org
 
-# all repos in a GitHub organization
-monphare scan --github my-org
-
-# all projects in a GitLab group
+# other platforms
 monphare scan --gitlab my-group
-
-# all repos in an Azure DevOps org or project
-monphare scan --ado my-org
 monphare scan --ado my-org/my-project
-
-# all repos in a Bitbucket workspace
 monphare scan --bitbucket my-workspace
 ```
 

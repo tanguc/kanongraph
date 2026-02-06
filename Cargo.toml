@@ -112,6 +112,7 @@ mockall = "0.12"
 tokio-test = "0.4"
 wiremock = "0.5"
 test-case = "3.3"
+cargo-husky = { version = "1.5.0", default-features = false, features = ["precommit-hook", "run-cargo-clippy", "run-cargo-fmt"] }
 
 [features]
 default = []
