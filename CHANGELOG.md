@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/tanguc/MonPhare/compare/v0.1.1...v0.2.0) (2026-02-06)
+
+
+### Features
+
+* add documentation website, Homebrew tap, and README rewrite ([e2fd74b](https://github.com/tanguc/MonPhare/commit/e2fd74bb55ec52d44fc2be415451e4a4a424b7c6))
+* **scan:** add URL detection for repository scanning ([56c11c7](https://github.com/tanguc/MonPhare/commit/56c11c76e9285da37905ff03e34b8cb3f54b65a6))
+
+
+### Bug Fixes
+
+* use correct case for baseUrl (/MonPhare/) and ignore RUSTSEC-2026-0009 ([943cc8a](https://github.com/tanguc/MonPhare/commit/943cc8abda88e490725405d8b3989a656380b43b))
+
 ## [0.1.1](https://github.com/tanguc/MonPhare/compare/v0.1.0...v0.1.1) (2026-02-05)
 
 
