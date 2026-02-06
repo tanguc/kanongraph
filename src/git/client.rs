@@ -75,7 +75,9 @@ impl GitClient {
 
         // Check if we should use cache
         if self.cache_manager.is_enabled() {
-            return self.clone_with_cache(url, provider, branch, token.as_deref()).await;
+            return self
+                .clone_with_cache(url, provider, branch, token.as_deref())
+                .await;
         }
 
         // Fallback to non-cached clone
@@ -181,9 +183,7 @@ impl GitClient {
         }
 
         // Clone the repository
-        provider
-            .clone_repo(url, &cache_path, branch, token)
-            .await?;
+        provider.clone_repo(url, &cache_path, branch, token).await?;
 
         // Get the HEAD SHA and create cache entry
         let head_sha = self.cache_manager.get_head_sha(&cache_path).await?;

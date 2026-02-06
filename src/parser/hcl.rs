@@ -563,9 +563,7 @@ fn parse_content_regex(
         let source_str = cap[2].to_string();
         let source = super::parse_module_source(&source_str)?;
 
-        let version_constraint = cap.get(3).and_then(|m| {
-            Constraint::parse(m.as_str()).ok()
-        });
+        let version_constraint = cap.get(3).and_then(|m| Constraint::parse(m.as_str()).ok());
 
         result.modules.push(ModuleRef {
             name,
@@ -579,9 +577,7 @@ fn parse_content_regex(
     }
 
     // extract required_providers: name = { source = "..." version = "..." }
-    let provider_re = Regex::new(
-        r#"(?s)required_providers\s*\{(.*?)\n\s*\}"#
-    ).unwrap();
+    let provider_re = Regex::new(r#"(?s)required_providers\s*\{(.*?)\n\s*\}"#).unwrap();
     let provider_entry_re = Regex::new(
         r#"(?s)(\w+)\s*=\s*\{[^}]*?source\s*=\s*"([^"]+)"(?:[^}]*?version\s*=\s*"([^"]+)")?[^}]*?\}"#
     ).unwrap();
@@ -591,9 +587,7 @@ fn parse_content_regex(
         for cap in provider_entry_re.captures_iter(block_content) {
             let name = cap[1].to_string();
             let source = Some(cap[2].to_string());
-            let version_constraint = cap.get(3).and_then(|m| {
-                Constraint::parse(m.as_str()).ok()
-            });
+            let version_constraint = cap.get(3).and_then(|m| Constraint::parse(m.as_str()).ok());
 
             result.providers.push(ProviderRef {
                 name,

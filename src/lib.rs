@@ -230,7 +230,11 @@ impl Scanner {
         );
 
         // Get token for the platform (optional for public orgs)
-        let token = self.config.git.get_token_for_platform(platform.as_str()).ok();
+        let token = self
+            .config
+            .git
+            .get_token_for_platform(platform.as_str())
+            .ok();
         let token_str = token.as_deref().unwrap_or("");
 
         // Create the appropriate client
@@ -246,7 +250,9 @@ impl Scanner {
             }
             VcsPlatform::AzureDevOps => {
                 let ado_client = AzureDevOpsClient::new(client);
-                ado_client.discover_repositories(org_spec, token_str).await?
+                ado_client
+                    .discover_repositories(org_spec, token_str)
+                    .await?
             }
             VcsPlatform::Bitbucket => {
                 let bb_client = BitbucketClient::new(client);
