@@ -71,15 +71,15 @@ impl GitClient {
         // Find the appropriate provider
         let provider = self.find_provider(url)?;
         let branch = self.config.git.branch.as_deref();
-        let token = self.get_token_for_url(url)?;
+        let token = self.get_token_for_url(url).ok();
 
         // Check if we should use cache
         if self.cache_manager.is_enabled() {
-            return self.clone_with_cache(url, provider, branch, &token).await;
+            return self.clone_with_cache(url, provider, branch, token.as_deref()).await;
         }
 
         // Fallback to non-cached clone
-        self.clone_without_cache(url, provider, branch, &token)
+        self.clone_without_cache(url, provider, branch, token.as_deref())
             .await
     }
 
@@ -89,7 +89,7 @@ impl GitClient {
         url: &str,
         provider: &Arc<dyn GitProvider>,
         branch: Option<&str>,
-        token: &str,
+        token: Option<&str>,
     ) -> Result<PathBuf> {
         // Ensure cache directory exists
         self.cache_manager.ensure_cache_dir().await?;
@@ -182,7 +182,7 @@ impl GitClient {
 
         // Clone the repository
         provider
-            .clone_repo(url, &cache_path, branch, Some(token))
+            .clone_repo(url, &cache_path, branch, token)
             .await?;
 
         // Get the HEAD SHA and create cache entry
@@ -206,7 +206,7 @@ impl GitClient {
         url: &str,
         provider: &Arc<dyn GitProvider>,
         branch: Option<&str>,
-        token: &str,
+        token: Option<&str>,
     ) -> Result<PathBuf> {
         tracing::info!(
             provider = provider.name(),
@@ -236,7 +236,7 @@ impl GitClient {
 
         // Clone the repository
         provider
-            .clone_repo(url, &target_path, branch, Some(token))
+            .clone_repo(url, &target_path, branch, token)
             .await?;
 
         tracing::info!(

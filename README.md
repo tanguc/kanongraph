@@ -1,5 +1,7 @@
 # MonPhare
 
+*mon-far* -- French for "my lighthouse". Because someone has to shine a light on your Terraform constraints.
+
 **Catch version drift, deprecated modules, and risky constraints across all your Terraform repos.**
 
 [![CI](https://github.com/tanguc/monphare/actions/workflows/ci.yml/badge.svg)](https://github.com/tanguc/monphare/actions/workflows/ci.yml)

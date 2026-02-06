@@ -260,7 +260,7 @@ impl GitOptions {
                 tracing::warn!(platform = %platform, "Using token from legacy MONPHARE_GIT_TOKEN environment variable");
             })
             .ok_or_else(|| {
-                tracing::error!(platform = %platform, env_var = %env_var_name, "No token found for platform");
+                tracing::debug!(platform = %platform, env_var = %env_var_name, "No token found for platform");
                 crate::err!(ConfigMissing {
                     key: format!("{} token - please set {} environment variable or configure in monphare.yaml",
                         platform, env_var_name),
