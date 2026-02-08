@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/tanguc/MonPhare/compare/v0.3.0...v0.4.0) (2026-02-06)
+
+
+### Features
+
+* add cargo-husky pre-commit hooks and update README ([ec395aa](https://github.com/tanguc/MonPhare/commit/ec395aa9d26e15fb29330f2013937679d1ac65b5))
+* add confirmation prompt for large org scans, update docs ([17c3e9a](https://github.com/tanguc/MonPhare/commit/17c3e9aea0ec59dc6e51454cf581b47574f56b38))
+* add multi-arch Docker images to release workflow ([9f344b0](https://github.com/tanguc/MonPhare/commit/9f344b0ab915f49eabaadfe1a33584947e602bc7))
+
 ## [0.3.0](https://github.com/tanguc/MonPhare/compare/v0.2.0...v0.3.0) (2026-02-06)
 
 
